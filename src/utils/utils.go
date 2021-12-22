@@ -3,28 +3,23 @@ package utils
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"os"
-	"strings"
-	"sync"
 
 	"github.com/gagliardetto/solana-go/programs/token"
 	sendAndConfirmTransaction "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
+	events "github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
 
 	"github.com/davecgh/go-spew/spew"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
-	"github.com/gagliardetto/solana-go/text"
 )
 
 func GetRecentBlockhash() *rpc.GetRecentBlockhashResult {
-	rpcClient := rpc.New("https://api.devnet.solana.com")
+	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	recent, err := rpcClient.GetRecentBlockhash(context.TODO(), rpc.CommitmentFinalized)
 	if err != nil {
 		panic(err)
@@ -40,9 +35,11 @@ func SendTxVent(
 	eventName string,
 	signingFunc Operator,
 	feePayer solana.PublicKey,
+	txAccount events.AccountMeta,
+	stakingCampaign solana.PrivateKey,
 ) (*bin.Decoder, []byte) {
-	rpcClient := rpc.New("https://api.devnet.solana.com")
-	wsClient, err := ws.Connect(context.TODO(), "wss://api.devnet.solana.com")
+	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	if err != nil {
 		panic(err)
 	}
@@ -69,53 +66,15 @@ func SendTxVent(
 		panic(fmt.Errorf("unable to sign transaction: %w", err))
 	}
 
-	var wg sync.WaitGroup
-	sub, err := wsClient.LogsSubscribeMentions(solana.MustPublicKeyFromBase58("5y9CzUaXKLij3bAZd1muTQhg6wA71wBUEu1e31p9zJqb"), rpc.CommitmentConfirmed)
-	if err != nil {
-		panic(err)
+	subscription := events.Subscription{
+		TransactionSignature:     tx.Signatures[0].String(),
+		AccountMeta:              txAccount,
+		StakingAccountPrivateKey: stakingCampaign.String(),
+		EventName:                eventName,
+		EventLogs:                make([]string, 0),
 	}
-	defer sub.Unsubscribe()
-
-	var eventLogs *[]string
-	eventChan := make(chan ws.LogResult)
-	wg.Add(1)
-	go func() {
-		state := false
-		for {
-			if state {
-				wg.Done()
-				return
-			}
-			event, err := sub.Recv()
-			if err != nil {
-				panic(err)
-			}
-			if event.Value.Signature == tx.Signatures[0] {
-				eventChan <- *event
-				state = true
-			}
-			continue
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		state := false
-		for {
-			select {
-			case logs := <-eventChan:
-				spew.Dump(logs)
-				eventLogs = &logs.Value.Logs
-				state = true
-			default:
-				continue
-			}
-			if state {
-				wg.Done()
-				return
-			}
-		}
-	}()
+	events.SubscribeTransactionToEventLoop(subscription)
+	fmt.Println(eventName, subscription)
 
 	sig, err := sendAndConfirmTransaction.SendAndConfirmTransaction(
 		context.TODO(),
@@ -126,38 +85,8 @@ func SendTxVent(
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
 	spew.Dump(sig)
-
-	wg.Wait()
-
-	var eventLog string
-	for _, log := range *eventLogs {
-		if strings.Contains(log, "Program log: ") {
-			eventLog = strings.Split(log, "Program log: ")[1]
-		}
-	}
-
-	return func() (*bin.Decoder, []byte) {
-		s := fmt.Sprint("event:", eventName)
-		h := sha256.New()
-		h.Write([]byte(s))
-		discriminatorBytes := h.Sum(nil)[:8]
-
-		eventBytes, err := base64.StdEncoding.DecodeString(eventLog)
-		if err != nil {
-			panic(nil)
-		}
-
-		decoder := bin.NewBinDecoder(eventBytes)
-		if err != nil {
-			panic(err)
-		}
-
-		return decoder, discriminatorBytes
-
-	}()
+	return nil, nil
 
 }
 func SendTx(
@@ -166,14 +95,15 @@ func SendTx(
 	signers []solana.PrivateKey,
 	feePayer solana.PublicKey,
 ) {
-	rpcClient := rpc.New("https://api.devnet.solana.com")
-	wsClient, err := ws.Connect(context.TODO(), "wss://api.devnet.solana.com")
+	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	if err != nil {
 		panic(err)
 	}
 
 	recent, err := rpcClient.GetRecentBlockhash(context.TODO(), rpc.CommitmentFinalized)
 	if err != nil {
+		// also fuck andrew gower for ruining my childhood
 		panic(err)
 	}
 
@@ -198,7 +128,7 @@ func SendTx(
 		panic(fmt.Errorf("unable to sign transaction: %w", err))
 	}
 
-	tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
+	// tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
 	sig, err := sendAndConfirmTransaction.SendAndConfirmTransaction(
 		context.TODO(),
 		rpcClient,
@@ -276,7 +206,7 @@ func GetTransactionAddress(
 }
 
 func MustGetMinimumBalanceForRentExemption() uint64 {
-	rpcClient := rpc.New("https://api.devnet.solana.com")
+	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 
 	minBalance, err := rpcClient.GetMinimumBalanceForRentExemption(
 		context.TODO(),
@@ -306,4 +236,3 @@ func GetTokenWallet(
 	}
 	return addr
 }
-

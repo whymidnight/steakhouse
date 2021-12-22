@@ -1,0 +1,4 @@
+package typestructs
+
+func Do() {
+}
