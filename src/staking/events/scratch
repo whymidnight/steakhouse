@@ -1,0 +1,8 @@
+nftUpsertSx := smart_wallet.NewCreateTransactionInstructionBuilder().
+    SetBump(stakingCampaignTxAccountBump).
+    SetInstructions(swIxs).
+    SetSmartWalletAccount(event.SmartWallet).
+    SetTransactionAccount(stakingCampaignTxAccount).
+    SetProposerAccount(provider.PublicKey()).
+    SetPayerAccount(provider.PublicKey()).
+    SetSystemProgramAccount(solana.SystemProgramID)

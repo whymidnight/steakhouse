@@ -18,7 +18,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/procyon-projects/chrono"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 )
 
@@ -35,7 +34,7 @@ type Subscriptions struct {
 func InitEventConsumption() *Subscriptions {
 	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	if err != nil {
-		panic(err)
+		log.Println("PANIC!!!", fmt.Errorf("unable to open WebSocket Client - %w", err))
 	}
 
 	return &Subscriptions{
@@ -64,6 +63,9 @@ type Subscription struct {
 	StakingAccountPrivateKey string      `json:"StakingAccountPrivateKey"`
 	EventName                string      `json:"EventName"`
 	EventLogs                []string    `json:"EventLogs"`
+	IsScheduled              bool        `json:"IsScheduled"`
+	IsProcessed              bool        `json:"IsProcessed"`
+	FilePath                 string      `json:"FilePath"`
 }
 type EventSubscriptions []EventSubscriptions
 
@@ -91,16 +93,14 @@ func (s *Subscriptions) SubscribeToEvent(args *Subscription, reply *int) error {
 			if event.Value.Signature == solana.MustSignatureFromBase58(args.TransactionSignature) {
 				// flush to disk
 				state = true
-				fmt.Println(args.EventName)
 				args.EventLogs = event.Value.Logs
+				args.FilePath = fmt.Sprint("./cached/", event.Value.Signature.String())
 				fBytes, err := json.Marshal(args)
 				if err != nil {
 					panic(fmt.Errorf("event recv fbytes panic: %w", err))
 				}
 
-				fmt.Println(string(fBytes))
-				u := uuid.NewV4()
-				ioutil.WriteFile(fmt.Sprint("./cached/", u.String()), fBytes, 0755)
+				ioutil.WriteFile(args.FilePath, fBytes, 0755)
 
 			}
 			continue
@@ -123,7 +123,42 @@ func (s *Subscriptions) CloseEventConsumption() {
 	s.FileWatcher.Close()
 }
 
-// loadCache - returns all cached
+// ResetCache - returns all cached
+func ResetCache(cachePath string) {
+	files, err := ioutil.ReadDir(cachePath)
+	if err != nil {
+		panic(fmt.Errorf("resetcache panic: %w", err))
+	}
+
+	for i := range files {
+		event := new(Subscription)
+		fileName := files[i].Name()
+		fileBytes := func() []byte {
+			fileBytes, err := ioutil.ReadFile(fmt.Sprint(cachePath, "/", fileName))
+			if err != nil {
+				panic(err)
+			}
+			return fileBytes
+		}()
+		dec := json.NewDecoder(bytes.NewReader(fileBytes))
+		err := dec.Decode(&event)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if event.IsScheduled {
+			continue
+		}
+		event.IsScheduled = false
+		event.IsProcessed = false
+
+		fBytes, err := json.Marshal(event)
+		if err != nil {
+			panic(fmt.Errorf("reset cache json marshalling panic: %w", err))
+		}
+		ioutil.WriteFile(fmt.Sprint(cachePath, fileName), fBytes, 0755)
+	}
+
+}
 func loadCache(cachePath string) []*Subscription {
 	// events := make([]*EventSubscription, 0)
 
@@ -147,16 +182,8 @@ func loadCache(cachePath string) []*Subscription {
 		if err != nil {
 			log.Fatal(err)
 		}
-		// fmt.Println(sub)
-
 		events[i] = &sub
 	}
-
-	/*
-			v := atomic.Value{}
-			_ = v.Load()
-		    v.Store()
-	*/
 
 	return events
 }
@@ -199,7 +226,10 @@ func (s *Subscriptions) ConsumeInThread(cachePath string) {
 
 			for eventIndex := range s.EventSubscriptions {
 				fmt.Println("Reloading indice:", eventIndex)
-				ProcessEvents(s.EventSubscriptions[eventIndex])
+				sub := s.EventSubscriptions[eventIndex]
+				if !sub.IsScheduled {
+					ProcessEvents(sub)
+				}
 			}
 
 		}

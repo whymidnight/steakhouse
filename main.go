@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking"
+	"github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
 )
 
 var Provider solana.PrivateKey
@@ -35,6 +36,7 @@ func init() {
 	if recover {
 		os.Remove("./.lock")
 		ioutil.WriteFile("./.recovery", []byte{}, 0)
+		events.ResetCache("./cached/")
 	} else {
 		_, stale := ioutil.ReadFile("./recovery")
 		if stale != nil {
