@@ -331,4 +331,3 @@ func Subscribe(OWNER solana.PrivateKey) {
 
 	sub.CloseEventConsumption()
 }
-

@@ -50,4 +50,6 @@ getStake = getSignaturesForAddress(1) + getTransaction(1)
 
 
 
+## Semantics
 
+GetTokenAccountsByOwner -> forEach = token =>

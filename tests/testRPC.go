@@ -9,7 +9,7 @@ import (
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking"
 )
 
-func main() {
+func main_rpc() {
 
 	client, err := rpc.DialHTTP("tcp", "0.0.0.0:1234")
 	if err != nil {
@@ -24,4 +24,3 @@ func main() {
 	}
 
 }
-

@@ -11,7 +11,7 @@ require (
 	github.com/gagliardetto/solana-go v1.0.1
 	github.com/gagliardetto/treeout v0.1.4
 	github.com/procyon-projects/chrono v1.0.0
-	github.com/satori/go.uuid v1.2.0
+	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 )
