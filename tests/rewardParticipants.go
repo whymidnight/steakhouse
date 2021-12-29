@@ -24,7 +24,7 @@ func main() {
 		int64(time.Now().Unix()+(60*2)),
 		[]string{"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr"},
 		"HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat",
-		"HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat",
+		"DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz",
 	)
 
 	_, mints := solanarpc.GetMints(func() (pubkey []solana.PublicKey) {

@@ -10,6 +10,7 @@ import (
 	"log"
 	stdrpc "net/rpc"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	bin "github.com/gagliardetto/binary"
@@ -66,6 +67,7 @@ type Subscription struct {
 	IsScheduled              bool        `json:"IsScheduled"`
 	IsProcessed              bool        `json:"IsProcessed"`
 	FilePath                 string      `json:"FilePath"`
+	Unix                     int64       `json:"Unix"`
 }
 type EventSubscriptions []EventSubscriptions
 
@@ -95,6 +97,7 @@ func (s *Subscriptions) SubscribeToEvent(args *Subscription, reply *int) error {
 				state = true
 				args.EventLogs = event.Value.Logs
 				args.FilePath = fmt.Sprint("./cached/", event.Value.Signature.String())
+				args.Unix = time.Now().UTC().Unix()
 				fBytes, err := json.Marshal(args)
 				if err != nil {
 					panic(fmt.Errorf("event recv fbytes panic: %w", err))
