@@ -1,6 +1,13 @@
 package typestructs
 
-import "github.com/gagliardetto/solana-go"
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+
+	"github.com/gagliardetto/solana-go"
+	uuid "github.com/satori/go.uuid"
+)
 
 type Authority struct {
 	Primitive solana.PublicKey `json:"Primitive"`
@@ -14,7 +21,12 @@ type Stake struct {
 	CandyMachines []Authority `json:"CandyMachines"`
 	StakingWallet Authority   `json:"StakingWallet"`
 	EntryTender   Authority   `json:"EntryTender"`
+	// RewardInterval describes in seconds, the frequency to recur rewarding participants during lifecycle
+	RewardInterval int64 `json:"RewardInterval"`
+	Reward         int64 `json:"Reward"`
 }
+
+const stakingPath = "./stakes/"
 
 func NewStake(
 	name string,
@@ -23,8 +35,10 @@ func NewStake(
 	candyMachines []string,
 	stakingWallet string,
 	entryTender string,
-) *Stake {
-	return &Stake{
+	rewardInterval int64,
+	reward int64,
+) (stake *Stake, fileName string) {
+	stake = &Stake{
 		name,
 		description,
 		endDate,
@@ -45,5 +59,52 @@ func NewStake(
 			Primitive: solana.MustPublicKeyFromBase58(entryTender),
 			Base58:    entryTender,
 		},
+		rewardInterval,
+		reward,
 	}
+
+	uid := uuid.NewV4().String()
+	fileName = fmt.Sprint(stakingPath, uid, ".json")
+	fBytes, err := json.MarshalIndent(stake, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	ioutil.WriteFile(fileName, fBytes, 0755)
+
+	return
+}
+
+func SetStakingWallet(stakeFile string, smartWalletDerived solana.PublicKey) {
+	stake := new(Stake)
+	file, err := ioutil.ReadFile(stakeFile)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(file, stake)
+	if err != nil {
+		panic(err)
+	}
+	stake.StakingWallet = Authority{
+		Primitive: smartWalletDerived,
+		Base58:    smartWalletDerived.String(),
+	}
+	fBytes, err := json.MarshalIndent(stake, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	ioutil.WriteFile(stakeFile, fBytes, 0755)
+}
+
+func ReadStakeFile(stakeFile string) (stake *Stake) {
+	stake = new(Stake)
+	file, err := ioutil.ReadFile(stakeFile)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(file, stake)
+	if err != nil {
+		panic(err)
+	}
+
+	return
 }

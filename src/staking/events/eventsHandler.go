@@ -68,6 +68,7 @@ type Subscription struct {
 	IsProcessed              bool        `json:"IsProcessed"`
 	FilePath                 string      `json:"FilePath"`
 	Unix                     int64       `json:"Unix"`
+	Stake                    string      `json:"Stake"`
 }
 type EventSubscriptions []EventSubscriptions
 
@@ -200,7 +201,8 @@ func (s *Subscriptions) ScheduleInThread(cachePath string) {
 func (s *Subscriptions) ConsumeInThread(cachePath string) {
 	for eventIndex := range s.EventSubscriptions {
 		fmt.Println("Reloading indice:", eventIndex)
-		ProcessEvents(s.EventSubscriptions[eventIndex])
+		s.buffer.Add(1)
+		ProcessEvents(s.EventSubscriptions[eventIndex], &s.buffer)
 	}
 
 	// reload events from disk upon addition to path
@@ -231,7 +233,8 @@ func (s *Subscriptions) ConsumeInThread(cachePath string) {
 				fmt.Println("Reloading indice:", eventIndex)
 				sub := s.EventSubscriptions[eventIndex]
 				if !sub.IsScheduled {
-					ProcessEvents(sub)
+					s.buffer.Add(1)
+					go ProcessEvents(sub, &s.buffer)
 				}
 			}
 

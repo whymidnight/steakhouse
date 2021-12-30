@@ -18,15 +18,16 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
+	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
 )
 
 func CreateStakingCampaign(OWNER solana.PrivateKey) {
-	// 1640011920410
-	// 1640012012
-	fmt.Println(time.Now().Unix())
-
 	releaseAuthority := solana.NewWallet()
+	candyMachines := []string{
+		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+	}
+	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
 
 	// create pubkey for staking campaign
 	stakingCampaign := solana.NewWallet()
@@ -34,6 +35,16 @@ func CreateStakingCampaign(OWNER solana.PrivateKey) {
 	if err != nil {
 		panic(nil)
 	}
+	_, stakeFile := typestructs.NewStake(
+		"Pondering",
+		"What is quack geese dont hurt me",
+		time.Now().UTC().Unix()+(10*60),
+		candyMachines,
+		stakingCampaign.PublicKey().String(),
+		entryTender,
+		60,
+		2,
+	)
 	{
 		// init system account for staking campaign pubkey
 		log.Println("Creating Smart Wallet...")
@@ -74,6 +85,7 @@ func CreateStakingCampaign(OWNER solana.PrivateKey) {
 				TxAccountBump:      0,
 			},
 			stakingCampaign.PrivateKey,
+			stakeFile,
 		)
 	}
 

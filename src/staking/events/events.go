@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strings"
+	"sync"
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -19,12 +21,12 @@ var SupportEvents = append(
 
 // "TransactionExecuteEvent",
 
-func ProcessEvents(sub *Subscription) error {
+func ProcessEvents(sub *Subscription, buffer *sync.WaitGroup) error {
 	eventLogs := make([]EventCodex, 0)
 	if strings.Contains(strings.Join(SupportEvents, ""), sub.EventName) {
-		for _, log := range sub.EventLogs {
-			if strings.Contains(log, "Program log: ") {
-				if strings.Contains(log, "Instruction: ") {
+		for _, logger := range sub.EventLogs {
+			if strings.Contains(logger, "Program log: ") {
+				if strings.Contains(logger, "Instruction: ") {
 					continue
 				}
 				decoder, discriminator := func() (*bin.Decoder, []byte) {
@@ -33,9 +35,11 @@ func ProcessEvents(sub *Subscription) error {
 					h.Write([]byte(s))
 					discriminatorBytes := h.Sum(nil)[:8]
 
-					eventBytes, err := base64.StdEncoding.DecodeString(strings.Split(log, "Program log: ")[1])
+					logger := strings.Split(logger, "Program log: ")[1]
+					log.Println(logger)
+					eventBytes, err := base64.StdEncoding.DecodeString(logger)
 					if err != nil {
-						panic(nil)
+						panic(err)
 					}
 
 					decoder := bin.NewBinDecoder(eventBytes)
@@ -49,19 +53,25 @@ func ProcessEvents(sub *Subscription) error {
 				eventLogs = append(eventLogs, EventCodex{decoder, discriminator})
 			}
 		}
+
+		/*
+		   Handle SUPPORTED_EVENTS
+		*/
 		switch sub.EventName {
-		case SupportEvents[0]:
-			for _, log := range eventLogs {
+		case SupportEvents[0]: // TransactionCreateEvent
+			for _, logger := range eventLogs {
 				event := typestructs.TransactionCreateEvent{}
-				err := event.UnmarshalWithDecoder(log.Decoder, log.Bytes)
+				err := event.UnmarshalWithDecoder(logger.Decoder, logger.Bytes)
 				if err != nil {
 					fmt.Println(err)
-					break
+					log.Println("Unable to unmarshal a tx create log")
+					continue
 				}
 
 				// set isScheduled
+				buffer.Add(1)
 				sub.SetScheduled(true)
-				ScheduleTransactionCallback(
+				go ScheduleTransactionCallback(
 					solana.MustPublicKeyFromBase58(sub.AccountMeta.TxAccountPublicKey),
 					sub.AccountMeta.TxAccountBump,
 					solana.MustPublicKeyFromBase58(sub.AccountMeta.DerivedPublicKey),
@@ -70,24 +80,30 @@ func ProcessEvents(sub *Subscription) error {
 					&event)
 				sub.SetProcessed(true)
 			}
-		case SupportEvents[2]:
-			for _, log := range eventLogs {
+		case SupportEvents[2]: // WalletCreateEvent
+			/*
+			   Intented as scheduling the callback fn
+			*/
+			for _, logger := range eventLogs { // should always eventLogs == 1
 				event := typestructs.SmartWalletCreate{}
-				err := event.UnmarshalWithDecoder(log.Decoder, log.Bytes)
+				err := event.UnmarshalWithDecoder(logger.Decoder, logger.Bytes)
 				if err != nil {
 					fmt.Println(err)
 					break
 				}
 
 				// set isScheduled
+				buffer.Add(1)
 				sub.SetScheduled(true)
-				ScheduleWalletCallback(
+				go ScheduleWalletCallback(
 					solana.MustPrivateKeyFromBase58(sub.StakingAccountPrivateKey),
 					solana.MustPrivateKeyFromBase58(sub.AccountMeta.TxAccountPublicKey),
 					solana.MustPublicKeyFromBase58(sub.AccountMeta.DerivedPublicKey),
 					&event,
+					sub.Stake,
+					sub.SetProcessed,
+					buffer,
 				)
-				sub.SetProcessed(true)
 			}
 			/*
 				case SupportEvents[1]:
@@ -95,5 +111,6 @@ func ProcessEvents(sub *Subscription) error {
 			*/
 		}
 	}
+	buffer.Done()
 	return nil
 }

@@ -37,6 +37,7 @@ func SendTxVent(
 	feePayer solana.PublicKey,
 	txAccount events.AccountMeta,
 	stakingCampaign solana.PrivateKey,
+	stakingFilePath string,
 ) (*bin.Decoder, []byte) {
 	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
@@ -72,6 +73,7 @@ func SendTxVent(
 		StakingAccountPrivateKey: stakingCampaign.String(),
 		EventName:                eventName,
 		EventLogs:                make([]string, 0),
+		Stake:                    stakingFilePath,
 	}
 	events.SubscribeTransactionToEventLoop(subscription)
 	fmt.Println(eventName, subscription)
