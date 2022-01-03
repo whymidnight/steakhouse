@@ -4,9 +4,17 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"go.uber.org/atomic"
 )
 
+var a = make(map[string]atomic.Int64)
+
 func main() {
+	i := a["a"]
+	fmt.Println(i.Load())
+	i.Inc()
+	fmt.Println(i.Load())
 	fmt.Println(5 / float64(2))
 
 	now := time.Now().UTC().Unix()
@@ -26,3 +34,4 @@ func main() {
 		time.Sleep(time.Duration(rem) * time.Millisecond)
 	}
 }
+
