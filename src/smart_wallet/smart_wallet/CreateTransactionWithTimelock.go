@@ -10,11 +10,11 @@ import (
 	ag_treeout "github.com/gagliardetto/treeout"
 )
 
-// CreateTransaction is the `createTransaction` instruction.
-type CreateTransaction struct {
-	Bump       *uint8
-	BufferSize *uint8
-	BlankXact  *TXInstruction
+// CreateTransactionWithTimelock is the `createTransactionWithTimelock` instruction.
+type CreateTransactionWithTimelock struct {
+	Bump         *uint8
+	Instructions *[]TXInstruction
+	Eta          *int64
 
 	// [0] = [WRITE] smartWallet
 	//
@@ -28,115 +28,115 @@ type CreateTransaction struct {
 	ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
-// NewCreateTransactionInstructionBuilder creates a new `CreateTransaction` instruction builder.
-func NewCreateTransactionInstructionBuilder() *CreateTransaction {
-	nd := &CreateTransaction{
+// NewCreateTransactionWithTimelockInstructionBuilder creates a new `CreateTransactionWithTimelock` instruction builder.
+func NewCreateTransactionWithTimelockInstructionBuilder() *CreateTransactionWithTimelock {
+	nd := &CreateTransactionWithTimelock{
 		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 5),
 	}
 	return nd
 }
 
 // SetBump sets the "bump" parameter.
-func (inst *CreateTransaction) SetBump(bump uint8) *CreateTransaction {
+func (inst *CreateTransactionWithTimelock) SetBump(bump uint8) *CreateTransactionWithTimelock {
 	inst.Bump = &bump
 	return inst
 }
 
-// SetBufferSize sets the "bufferSize" parameter.
-func (inst *CreateTransaction) SetBufferSize(bufferSize uint8) *CreateTransaction {
-	inst.BufferSize = &bufferSize
+// SetInstructions sets the "instructions" parameter.
+func (inst *CreateTransactionWithTimelock) SetInstructions(instructions []TXInstruction) *CreateTransactionWithTimelock {
+	inst.Instructions = &instructions
 	return inst
 }
 
-// SetBlankXact sets the "blankXact" parameter.
-func (inst *CreateTransaction) SetBlankXact(blankXact TXInstruction) *CreateTransaction {
-	inst.BlankXact = &blankXact
+// SetEta sets the "eta" parameter.
+func (inst *CreateTransactionWithTimelock) SetEta(eta int64) *CreateTransactionWithTimelock {
+	inst.Eta = &eta
 	return inst
 }
 
 // SetSmartWalletAccount sets the "smartWallet" account.
-func (inst *CreateTransaction) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *CreateTransaction {
+func (inst *CreateTransactionWithTimelock) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *CreateTransactionWithTimelock {
 	inst.AccountMetaSlice[0] = ag_solanago.Meta(smartWallet).WRITE()
 	return inst
 }
 
 // GetSmartWalletAccount gets the "smartWallet" account.
-func (inst *CreateTransaction) GetSmartWalletAccount() *ag_solanago.AccountMeta {
+func (inst *CreateTransactionWithTimelock) GetSmartWalletAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[0]
 }
 
 // SetTransactionAccount sets the "transaction" account.
-func (inst *CreateTransaction) SetTransactionAccount(transaction ag_solanago.PublicKey) *CreateTransaction {
+func (inst *CreateTransactionWithTimelock) SetTransactionAccount(transaction ag_solanago.PublicKey) *CreateTransactionWithTimelock {
 	inst.AccountMetaSlice[1] = ag_solanago.Meta(transaction).WRITE()
 	return inst
 }
 
 // GetTransactionAccount gets the "transaction" account.
-func (inst *CreateTransaction) GetTransactionAccount() *ag_solanago.AccountMeta {
+func (inst *CreateTransactionWithTimelock) GetTransactionAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[1]
 }
 
 // SetProposerAccount sets the "proposer" account.
-func (inst *CreateTransaction) SetProposerAccount(proposer ag_solanago.PublicKey) *CreateTransaction {
+func (inst *CreateTransactionWithTimelock) SetProposerAccount(proposer ag_solanago.PublicKey) *CreateTransactionWithTimelock {
 	inst.AccountMetaSlice[2] = ag_solanago.Meta(proposer).SIGNER()
 	return inst
 }
 
 // GetProposerAccount gets the "proposer" account.
-func (inst *CreateTransaction) GetProposerAccount() *ag_solanago.AccountMeta {
+func (inst *CreateTransactionWithTimelock) GetProposerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[2]
 }
 
 // SetPayerAccount sets the "payer" account.
-func (inst *CreateTransaction) SetPayerAccount(payer ag_solanago.PublicKey) *CreateTransaction {
+func (inst *CreateTransactionWithTimelock) SetPayerAccount(payer ag_solanago.PublicKey) *CreateTransactionWithTimelock {
 	inst.AccountMetaSlice[3] = ag_solanago.Meta(payer).WRITE().SIGNER()
 	return inst
 }
 
 // GetPayerAccount gets the "payer" account.
-func (inst *CreateTransaction) GetPayerAccount() *ag_solanago.AccountMeta {
+func (inst *CreateTransactionWithTimelock) GetPayerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[3]
 }
 
 // SetSystemProgramAccount sets the "systemProgram" account.
-func (inst *CreateTransaction) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *CreateTransaction {
+func (inst *CreateTransactionWithTimelock) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *CreateTransactionWithTimelock {
 	inst.AccountMetaSlice[4] = ag_solanago.Meta(systemProgram)
 	return inst
 }
 
 // GetSystemProgramAccount gets the "systemProgram" account.
-func (inst *CreateTransaction) GetSystemProgramAccount() *ag_solanago.AccountMeta {
+func (inst *CreateTransactionWithTimelock) GetSystemProgramAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[4]
 }
 
-func (inst CreateTransaction) Build() *Instruction {
+func (inst CreateTransactionWithTimelock) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
 		Impl:   inst,
-		TypeID: Instruction_CreateTransaction,
+		TypeID: Instruction_CreateTransactionWithTimelock,
 	}}
 }
 
 // ValidateAndBuild validates the instruction parameters and accounts;
 // if there is a validation error, it returns the error.
 // Otherwise, it builds and returns the instruction.
-func (inst CreateTransaction) ValidateAndBuild() (*Instruction, error) {
+func (inst CreateTransactionWithTimelock) ValidateAndBuild() (*Instruction, error) {
 	if err := inst.Validate(); err != nil {
 		return nil, err
 	}
 	return inst.Build(), nil
 }
 
-func (inst *CreateTransaction) Validate() error {
+func (inst *CreateTransactionWithTimelock) Validate() error {
 	// Check whether all (required) parameters are set:
 	{
 		if inst.Bump == nil {
 			return errors.New("Bump parameter is not set")
 		}
-		if inst.BufferSize == nil {
-			return errors.New("BufferSize parameter is not set")
+		if inst.Instructions == nil {
+			return errors.New("Instructions parameter is not set")
 		}
-		if inst.BlankXact == nil {
-			return errors.New("BlankXact parameter is not set")
+		if inst.Eta == nil {
+			return errors.New("Eta parameter is not set")
 		}
 	}
 
@@ -161,19 +161,19 @@ func (inst *CreateTransaction) Validate() error {
 	return nil
 }
 
-func (inst *CreateTransaction) EncodeToTree(parent ag_treeout.Branches) {
+func (inst *CreateTransactionWithTimelock) EncodeToTree(parent ag_treeout.Branches) {
 	parent.Child(ag_format.Program(ProgramName, ProgramID)).
 		//
 		ParentFunc(func(programBranch ag_treeout.Branches) {
-			programBranch.Child(ag_format.Instruction("CreateTransaction")).
+			programBranch.Child(ag_format.Instruction("CreateTransactionWithTimelock")).
 				//
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 
 					// Parameters of the instruction:
 					instructionBranch.Child("Params[len=3]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
-						paramsBranch.Child(ag_format.Param("      Bump", *inst.Bump))
-						paramsBranch.Child(ag_format.Param("BufferSize", *inst.BufferSize))
-						paramsBranch.Child(ag_format.Param(" BlankXact", *inst.BlankXact))
+						paramsBranch.Child(ag_format.Param("        Bump", *inst.Bump))
+						paramsBranch.Child(ag_format.Param("Instructions", *inst.Instructions))
+						paramsBranch.Child(ag_format.Param("         Eta", *inst.Eta))
 					})
 
 					// Accounts of the instruction:
@@ -188,59 +188,59 @@ func (inst *CreateTransaction) EncodeToTree(parent ag_treeout.Branches) {
 		})
 }
 
-func (obj CreateTransaction) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+func (obj CreateTransactionWithTimelock) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	// Serialize `Bump` param:
 	err = encoder.Encode(obj.Bump)
 	if err != nil {
 		return err
 	}
-	// Serialize `BufferSize` param:
-	err = encoder.Encode(obj.BufferSize)
+	// Serialize `Instructions` param:
+	err = encoder.Encode(obj.Instructions)
 	if err != nil {
 		return err
 	}
-	// Serialize `BlankXact` param:
-	err = encoder.Encode(obj.BlankXact)
+	// Serialize `Eta` param:
+	err = encoder.Encode(obj.Eta)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (obj *CreateTransaction) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+func (obj *CreateTransactionWithTimelock) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
 	// Deserialize `Bump`:
 	err = decoder.Decode(&obj.Bump)
 	if err != nil {
 		return err
 	}
-	// Deserialize `BufferSize`:
-	err = decoder.Decode(&obj.BufferSize)
+	// Deserialize `Instructions`:
+	err = decoder.Decode(&obj.Instructions)
 	if err != nil {
 		return err
 	}
-	// Deserialize `BlankXact`:
-	err = decoder.Decode(&obj.BlankXact)
+	// Deserialize `Eta`:
+	err = decoder.Decode(&obj.Eta)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// NewCreateTransactionInstruction declares a new CreateTransaction instruction with the provided parameters and accounts.
-func NewCreateTransactionInstruction(
+// NewCreateTransactionWithTimelockInstruction declares a new CreateTransactionWithTimelock instruction with the provided parameters and accounts.
+func NewCreateTransactionWithTimelockInstruction(
 	// Parameters:
 	bump uint8,
-	bufferSize uint8,
-	blankXact TXInstruction,
+	instructions []TXInstruction,
+	eta int64,
 	// Accounts:
 	smartWallet ag_solanago.PublicKey,
 	transaction ag_solanago.PublicKey,
 	proposer ag_solanago.PublicKey,
 	payer ag_solanago.PublicKey,
-	systemProgram ag_solanago.PublicKey) *CreateTransaction {
-	return NewCreateTransactionInstructionBuilder().
+	systemProgram ag_solanago.PublicKey) *CreateTransactionWithTimelock {
+	return NewCreateTransactionWithTimelockInstructionBuilder().
 		SetBump(bump).
-		SetBufferSize(bufferSize).
-		SetBlankXact(blankXact).
+		SetInstructions(instructions).
+		SetEta(eta).
 		SetSmartWalletAccount(smartWallet).
 		SetTransactionAccount(transaction).
 		SetProposerAccount(proposer).

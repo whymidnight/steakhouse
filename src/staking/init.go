@@ -22,7 +22,13 @@ import (
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
 )
 
-func CreateStakingCampaign(OWNER solana.PrivateKey) {
+func CreateStakingCampaign(
+	OWNER solana.PrivateKey,
+) (
+	stake *typestructs.Stake,
+	stakingCampaignPrivateKey solana.PrivateKey,
+	stakingCampaignSmartWallet solana.PublicKey,
+) {
 	releaseAuthority := solana.NewWallet()
 	candyMachines := []string{
 		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
@@ -31,14 +37,15 @@ func CreateStakingCampaign(OWNER solana.PrivateKey) {
 
 	// create pubkey for staking campaign
 	stakingCampaign := solana.NewWallet()
+	stakingCampaignPrivateKey = stakingCampaign.PrivateKey
 	stakingCampaignSmartWallet, stakingCampaignSmartWalletBump, err := utils.GetSmartWallet(stakingCampaign.PublicKey())
 	if err != nil {
 		panic(nil)
 	}
-	_, stakeFile := typestructs.NewStake(
+	stake, stakeFile := typestructs.NewStake(
 		"Pondering",
 		"What is quack geese dont hurt me",
-		time.Now().UTC().Unix()+(10*60),
+		time.Now().UTC().Unix()+(60*60),
 		candyMachines,
 		stakingCampaign.PublicKey().String(),
 		entryTender,
@@ -89,6 +96,28 @@ func CreateStakingCampaign(OWNER solana.PrivateKey) {
 		)
 	}
 
+	/*
+		derived, derivedBump, e := utils.GetSmartWalletDerived(stakingCampaignSmartWallet, uint64(0))
+		if e != nil {
+			panic(e)
+		}
+		fmt.Println()
+		fmt.Println()
+		fmt.Println()
+		log.Println("wallet: ", stakingCampaignSmartWallet)
+		log.Println("derived: ", derived, derivedBump)
+		log.Println("private: ", stakingCampaign.PrivateKey)
+
+		for i := range []int{1, 2, 3} {
+			tx, txBump, e := utils.GetTransactionAddress(stakingCampaignSmartWallet, uint64(i))
+			if e != nil {
+				panic(e)
+			}
+			log.Println("i:", i, "tx: ", tx, txBump)
+		}
+	*/
+
+	return
 }
 
 func InitTestAccounts(OWNER solana.PrivateKey) {

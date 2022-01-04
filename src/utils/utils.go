@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"os"
 
 	"github.com/gagliardetto/solana-go/programs/token"
 	sendAndConfirmTransaction "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
+	"github.com/gagliardetto/solana-go/text"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	events "github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
 
@@ -78,6 +80,7 @@ func SendTxVent(
 	events.SubscribeTransactionToEventLoop(subscription)
 	fmt.Println(eventName, subscription)
 
+	tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
 	sig, err := sendAndConfirmTransaction.SendAndConfirmTransaction(
 		context.TODO(),
 		rpcClient,
@@ -130,7 +133,7 @@ func SendTx(
 		panic(fmt.Errorf("unable to sign transaction: %w", err))
 	}
 
-	// tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
+	tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
 	sig, err := sendAndConfirmTransaction.SendAndConfirmTransaction(
 		context.TODO(),
 		rpcClient,
@@ -139,12 +142,15 @@ func SendTx(
 	)
 	if err != nil {
 		fmt.Println(err)
-		SendTx(
-			doc,
-			instructions,
-			signers,
-			feePayer,
-		)
+		/*
+			SendTx(
+				doc,
+				instructions,
+				signers,
+				feePayer,
+			)
+		*/
+		return
 	}
 	spew.Dump(sig)
 }
@@ -167,11 +173,11 @@ func GetSmartWallet(
 
 func GetSmartWalletDerived(
 	base solana.PublicKey,
-	index int64,
+	index uint64,
 ) (addr solana.PublicKey, bump uint8, err error) {
 	buf := make([]byte, 8)
 
-	_ = binary.PutVarint(buf, index)
+	binary.LittleEndian.PutUint64(buf, index)
 	addr, bump, err = solana.FindProgramAddress(
 		[][]byte{
 			[]byte("GokiSmartWalletDerived"),
@@ -188,11 +194,11 @@ func GetSmartWalletDerived(
 
 func GetTransactionAddress(
 	base solana.PublicKey,
-	index int64,
+	index uint64,
 ) (addr solana.PublicKey, bump uint8, err error) {
 	buf := make([]byte, 8)
 
-	_ = binary.PutVarint(buf, index)
+	binary.LittleEndian.PutUint64(buf, index)
 	addr, bump, err = solana.FindProgramAddress(
 		[][]byte{
 			[]byte("GokiTransaction"),

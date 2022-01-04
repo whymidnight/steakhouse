@@ -31,7 +31,7 @@ func init() {
 		panic(err)
 	}
 
-	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("5y9CzUaXKLij3bAZd1muTQhg6wA71wBUEu1e31p9zJqb"))
+	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("AqQCUzA9EWMthbFMSUW3d5JPuNe1eLRCwLMS5CwDRS3D"))
 
 	if recover {
 		os.Remove("./.lock")
@@ -93,3 +93,4 @@ func SetupCloseHandler(dontmindme solana.PrivateKey) {
 		os.Exit(0)
 	}()
 }
+

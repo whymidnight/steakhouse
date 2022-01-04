@@ -258,13 +258,14 @@ func SubscribeTransactionToEventLoop(args interface{}) {
 
 	client, err := stdrpc.DialHTTP("tcp", "0.0.0.0:1234")
 	if err != nil {
-		log.Fatal("dialing:", err)
+		log.Println("failed to dial!!!", err)
+		return
 	}
 	// Synchronous call
 	var reply int
 	err = client.Call("Subscriptions.SubscribeToEvent", args, &reply)
 	if err != nil {
-		log.Fatal("arith error:", err)
+		log.Println("failed to subscribe!!!", err)
 	}
 
 }
