@@ -60,7 +60,7 @@ func main() {
 	case "create":
 		funcs = append(
 			funcs,
-			staking.CreateStakingCampaign,
+			staking.InitStakingCampaign,
 		)
 	case "start":
 		funcs = append(
@@ -93,4 +93,3 @@ func SetupCloseHandler(dontmindme solana.PrivateKey) {
 		os.Exit(0)
 	}()
 }
-

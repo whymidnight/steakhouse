@@ -228,7 +228,7 @@ func Tokens(owner solana.PublicKey) ([]byte, error) {
 	return body, nil
 }
 
-func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey) map[string][]LastAct {
+func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
 	stakes, err := Tokens(stakingWallet)
 	if err != nil {
 		panic(err)
@@ -255,11 +255,19 @@ func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey) map[str
 			return
 		}() {
 			json := token.Account.Data.Parsed.Info
-			fmt.Println(json.Mint, json.TokenAmount.UIAmount)
-			lastActs = append(
-				lastActs,
-				*GetLastAct(solana.MustPublicKeyFromBase58(json.Mint)),
-			)
+			if func(part solana.PublicKey) bool {
+				for _, mint := range excl {
+					if mint.Equals(part) {
+						return false
+					}
+				}
+				return true
+			}(solana.MustPublicKeyFromBase58(json.Mint)) {
+				lastActs = append(
+					lastActs,
+					GetLastAct(solana.MustPublicKeyFromBase58(json.Mint)),
+				)
+			}
 
 			// UIAmount
 		}
@@ -285,11 +293,11 @@ type LastAct struct {
 	BlockTime int64
 }
 
-func GetLastAct(mint solana.PublicKey) *LastAct {
+func GetLastAct(mint solana.PublicKey) LastAct {
 	signature, blockTime := LastSig(mint)
 	owner := GetLastInfo(signature)
 
-	return &LastAct{
+	return LastAct{
 		Mint:      mint,
 		OwnerOG:   *owner,
 		Signature: signature,

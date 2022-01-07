@@ -16,7 +16,7 @@ type AppendTransaction struct {
 	Instructions *TXInstruction
 	Index        *uint64
 
-	// [0] = [] smartWallet
+	// [0] = [WRITE] smartWallet
 	//
 	// [1] = [WRITE] transaction
 	//
@@ -209,4 +209,3 @@ func NewAppendTransactionInstruction(
 		SetTransactionAccount(transaction).
 		SetOwnerAccount(owner)
 }
-

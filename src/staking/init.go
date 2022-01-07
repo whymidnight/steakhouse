@@ -22,6 +22,97 @@ import (
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
 )
 
+func InitStakingCampaign(
+	OWNER solana.PrivateKey,
+) {
+	releaseAuthority := solana.NewWallet()
+	candyMachines := []string{
+		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+	}
+	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
+
+	// create pubkey for staking campaign
+	stakingCampaign := solana.NewWallet()
+	// stakingCampaignPrivateKey := stakingCampaign.PrivateKey
+	stakingCampaignSmartWallet, stakingCampaignSmartWalletBump, err := utils.GetSmartWallet(stakingCampaign.PublicKey())
+	if err != nil {
+		panic(nil)
+	}
+	_, stakeFile := typestructs.NewStake(
+		"Pondering",
+		"What is quack geese dont hurt me",
+		time.Now().UTC().Unix()+(60*10),
+		candyMachines,
+		stakingCampaign.PublicKey().String(),
+		entryTender,
+		60,
+		2,
+	)
+	{
+		// init system account for staking campaign pubkey
+		log.Println("Creating Smart Wallet...")
+		utils.SendTxVent(
+			"Create Smart Wallet",
+			append(make([]solana.Instruction, 0), smart_wallet.NewCreateSmartWalletInstructionBuilder().
+				SetBump(stakingCampaignSmartWalletBump).
+				SetMaxOwners(4).
+				SetOwners(append(
+					make([]solana.PublicKey, 0),
+					OWNER.PublicKey(),
+					stakingCampaign.PublicKey(),
+					releaseAuthority.PublicKey(),
+				)).
+				SetThreshold(2).
+				SetMinimumDelay(0).
+				SetBaseAccount(stakingCampaign.PublicKey()).
+				SetSmartWalletAccount(stakingCampaignSmartWallet).
+				SetPayerAccount(OWNER.PublicKey()).
+				SetSystemProgramAccount(solana.SystemProgramID).
+				Build(),
+			),
+			"WalletCreateEvent",
+			func(key solana.PublicKey) *solana.PrivateKey {
+				signers := append(make([]solana.PrivateKey, 0), OWNER, stakingCampaign.PrivateKey, releaseAuthority.PrivateKey)
+				for _, candidate := range signers {
+					if candidate.PublicKey().Equals(key) {
+						return &candidate
+					}
+				}
+				return nil
+			},
+			OWNER.PublicKey(),
+			events.AccountMeta{
+				DerivedPublicKey:   stakingCampaignSmartWallet.String(),
+				DerivedBump:        stakingCampaignSmartWalletBump,
+				TxAccountPublicKey: releaseAuthority.PrivateKey.String(),
+				TxAccountBump:      0,
+			},
+			stakingCampaign.PrivateKey,
+			stakeFile,
+		)
+	}
+
+	/*
+		derived, derivedBump, e := utils.GetSmartWalletDerived(stakingCampaignSmartWallet, uint64(0))
+		if e != nil {
+			panic(e)
+		}
+		fmt.Println()
+		fmt.Println()
+		fmt.Println()
+		log.Println("wallet: ", stakingCampaignSmartWallet)
+		log.Println("derived: ", derived, derivedBump)
+		log.Println("private: ", stakingCampaign.PrivateKey)
+
+		for i := range []int{1, 2, 3} {
+			tx, txBump, e := utils.GetTransactionAddress(stakingCampaignSmartWallet, uint64(i))
+			if e != nil {
+				panic(e)
+			}
+			log.Println("i:", i, "tx: ", tx, txBump)
+		}
+	*/
+}
 func CreateStakingCampaign(
 	OWNER solana.PrivateKey,
 ) (

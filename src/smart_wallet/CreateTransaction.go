@@ -14,7 +14,8 @@ import (
 type CreateTransaction struct {
 	Bump       *uint8
 	BufferSize *uint8
-	BlankXact  *TXInstruction
+	AbsIndex   *uint64
+	BlankXacts *[]TXInstruction
 
 	// [0] = [WRITE] smartWallet
 	//
@@ -48,9 +49,15 @@ func (inst *CreateTransaction) SetBufferSize(bufferSize uint8) *CreateTransactio
 	return inst
 }
 
-// SetBlankXact sets the "blankXact" parameter.
-func (inst *CreateTransaction) SetBlankXact(blankXact TXInstruction) *CreateTransaction {
-	inst.BlankXact = &blankXact
+// SetBlankXacts sets the "blankXacts" parameter.
+func (inst *CreateTransaction) SetBlankXacts(blankXacts []TXInstruction) *CreateTransaction {
+	inst.BlankXacts = &blankXacts
+	return inst
+}
+
+// SetAbsIndex sets the "absIndex" parameter.
+func (inst *CreateTransaction) SetAbsIndex(absIndex uint64) *CreateTransaction {
+	inst.AbsIndex = &absIndex
 	return inst
 }
 
@@ -135,8 +142,11 @@ func (inst *CreateTransaction) Validate() error {
 		if inst.BufferSize == nil {
 			return errors.New("BufferSize parameter is not set")
 		}
-		if inst.BlankXact == nil {
-			return errors.New("BlankXact parameter is not set")
+		if inst.BlankXacts == nil {
+			return errors.New("BlankXacts parameter is not set")
+		}
+		if inst.AbsIndex == nil {
+			return errors.New("AbsIndex parameter is not set")
 		}
 	}
 
@@ -170,10 +180,11 @@ func (inst *CreateTransaction) EncodeToTree(parent ag_treeout.Branches) {
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 
 					// Parameters of the instruction:
-					instructionBranch.Child("Params[len=3]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
+					instructionBranch.Child("Params[len=4]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
 						paramsBranch.Child(ag_format.Param("      Bump", *inst.Bump))
 						paramsBranch.Child(ag_format.Param("BufferSize", *inst.BufferSize))
-						paramsBranch.Child(ag_format.Param(" BlankXact", *inst.BlankXact))
+						paramsBranch.Child(ag_format.Param("BlankXacts", *inst.BlankXacts))
+						paramsBranch.Child(ag_format.Param("  AbsIndex", *inst.AbsIndex))
 					})
 
 					// Accounts of the instruction:
@@ -199,8 +210,13 @@ func (obj CreateTransaction) MarshalWithEncoder(encoder *ag_binary.Encoder) (err
 	if err != nil {
 		return err
 	}
-	// Serialize `BlankXact` param:
-	err = encoder.Encode(obj.BlankXact)
+	// Serialize `AbsIndex` param:
+	err = encoder.Encode(obj.AbsIndex)
+	if err != nil {
+		return err
+	}
+	// Serialize `BlankXacts` param:
+	err = encoder.Encode(obj.BlankXacts)
 	if err != nil {
 		return err
 	}
@@ -217,8 +233,13 @@ func (obj *CreateTransaction) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (
 	if err != nil {
 		return err
 	}
-	// Deserialize `BlankXact`:
-	err = decoder.Decode(&obj.BlankXact)
+	// Deserialize `AbsIndex`:
+	err = decoder.Decode(&obj.AbsIndex)
+	if err != nil {
+		return err
+	}
+	// Deserialize `BlankXacts`:
+	err = decoder.Decode(&obj.BlankXacts)
 	if err != nil {
 		return err
 	}
@@ -230,7 +251,8 @@ func NewCreateTransactionInstruction(
 	// Parameters:
 	bump uint8,
 	bufferSize uint8,
-	blankXact TXInstruction,
+	blankXacts []TXInstruction,
+	absIndex uint64,
 	// Accounts:
 	smartWallet ag_solanago.PublicKey,
 	transaction ag_solanago.PublicKey,
@@ -240,7 +262,8 @@ func NewCreateTransactionInstruction(
 	return NewCreateTransactionInstructionBuilder().
 		SetBump(bump).
 		SetBufferSize(bufferSize).
-		SetBlankXact(blankXact).
+		SetBlankXacts(blankXacts).
+		SetAbsIndex(absIndex).
 		SetSmartWalletAccount(smartWallet).
 		SetTransactionAccount(transaction).
 		SetProposerAccount(proposer).

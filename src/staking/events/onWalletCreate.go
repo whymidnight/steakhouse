@@ -5,21 +5,29 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/system"
+	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 	sendAndConfirmTransaction "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/solanarpc"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
+	"go.uber.org/atomic"
 	// "go.uber.org/atomic"
 )
 
-// var txCount = make(map[string]atomic.Int64)
+var buffers = make(map[string]atomic.Int64)
+var dstAta = solana.MustPublicKeyFromBase58("4qRY8AEAhCVs7YF89QgHoqKWjixcqksEjrjAtHzdbMJV")
+var flock = solana.MustPublicKeyFromBase58("DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz")
+
+// var buffers = 0
 
 type epoch struct {
 	start int
@@ -49,47 +57,810 @@ func prepareInstructions(
 	return nil
 }
 
-func doRewards(
-	now int64,
+func calculatePreciseReward(reward float64, decimals int) uint64 {
+	conv := math.Pow10(decimals + 1)
+
+	return uint64(reward * conv)
+}
+
+func makeSwIxs(
+	opCode int, // 0 - rewards, 1 - nft release
+	participants func(solana.PublicKey, []solana.PublicKey, []solana.PublicKey) map[string][]solanarpc.LastAct,
+	smartWalletDerived solana.PublicKey,
+	mints []solana.PublicKey,
+	startDate int64,
+	endDate int64,
 	stake *typestructs.Stake,
-	event *typestructs.SmartWalletCreate,
+	derivedAta *solana.PublicKey,
+	provider solana.PrivateKey,
+) (
+	map[string][]solanarpc.LastAct,
+	[]smart_wallet.TXInstruction,
+) {
+	indice := 0
+	swIxs := make([]smart_wallet.TXInstruction, 0)
+	parts := participants(smartWalletDerived, mints, []solana.PublicKey{stake.EntryTender.Primitive})
+	switch opCode {
+	case 0:
+		{
+			rewardTokenSupply := float64(0)
+			for owner, tokens := range parts {
+				ownerRewardAta := getTokenWallet(
+					solana.MustPublicKeyFromBase58(owner),
+					flock, // FLOCK ATA of OWNER
+				)
+
+				ixs := make([]smart_wallet.TXInstruction, 0)
+				// get valid epoch for indice
+				log.Println("--- Owner:", owner)
+				rewardSum := float64(0)
+				for _, nft := range tokens {
+					if nft.BlockTime <= startDate {
+						rewardSum = rewardSum + float64(stake.Reward)
+					} else {
+						participationTime := endDate - nft.BlockTime
+						proportion := 1 - (float64(participationTime) / float64(stake.RewardInterval))
+						rewardSum = rewardSum + (float64(stake.Reward) * proportion)
+					}
+					d := token.NewTransferCheckedInstructionBuilder().
+						SetAmount(calculatePreciseReward(rewardSum, 9)).
+						SetDecimals(9).
+						SetMintAccount(stake.EntryTender.Primitive).
+						SetDestinationAccount(ownerRewardAta).
+						SetOwnerAccount(smartWalletDerived).
+						SetSourceAccount(*derivedAta)
+
+					accs := d.Build().Accounts()
+					_ = d.Accounts.SetAccounts(accs)
+
+					ix := smart_wallet.TXInstruction{
+						ProgramId: d.Build().ProgramID(),
+						Keys: func() []smart_wallet.TXAccountMeta {
+							txa := make([]smart_wallet.TXAccountMeta, 0)
+							for i := range accs {
+								txa = append(
+									txa,
+									smart_wallet.TXAccountMeta{
+										Pubkey:     accs[i].PublicKey,
+										IsSigner:   accs[i].IsSigner,
+										IsWritable: accs[i].IsWritable,
+									},
+								)
+							}
+							return txa
+						}(),
+						Data: func() []byte {
+							data, err := d.Build().Data()
+							if err != nil {
+								panic(err)
+							}
+							return data
+						}(),
+					}
+					ixs = append(ixs, ix)
+				}
+				rewardTokenSupply = rewardTokenSupply + rewardSum
+				swIxs = append(swIxs, ixs...)
+				// break
+			}
+
+			// Supply stake wallet with reward token
+			{
+				fundWalletWithRewardToken(
+					provider,
+					flock,
+					provider.PublicKey(),
+					smartWalletDerived,
+					uint64(math.Ceil(rewardTokenSupply)*2),
+				)
+			}
+		}
+
+	case 1:
+		{
+
+			for owner, tokens := range parts {
+
+				ixs := make([]smart_wallet.TXInstruction, 0)
+				// get valid epoch for indice
+				log.Println("--- Owner:", owner)
+				for _, nft := range tokens {
+					log.Println("--- Mint:", nft.Mint)
+					derivedNft := getTokenWallet(
+						smartWalletDerived,
+						nft.Mint,
+					)
+					pledgedNft := getTokenWallet(
+						nft.OwnerOG,
+						nft.Mint,
+					)
+					d := token.NewTransferCheckedInstructionBuilder().
+						SetAmount(1).
+						SetDecimals(0).
+						SetMintAccount(nft.Mint).
+						SetDestinationAccount(pledgedNft).
+						SetOwnerAccount(smartWalletDerived).
+						SetSourceAccount(derivedNft)
+
+					accs := d.Build().Accounts()
+					_ = d.Accounts.SetAccounts(accs)
+
+					ix := smart_wallet.TXInstruction{
+						ProgramId: d.Build().ProgramID(),
+						Keys: func() []smart_wallet.TXAccountMeta {
+							txa := make([]smart_wallet.TXAccountMeta, 0)
+							for i := range accs {
+								txa = append(
+									txa,
+									smart_wallet.TXAccountMeta{
+										Pubkey:     accs[i].PublicKey,
+										IsSigner:   accs[i].IsSigner,
+										IsWritable: accs[i].IsWritable,
+									},
+								)
+							}
+							return txa
+						}(),
+						Data: func() []byte {
+							data, err := d.Build().Data()
+							if err != nil {
+								panic(err)
+							}
+							return data
+						}(),
+					}
+					ixs = append(ixs, ix)
+					indice = indice + 1
+				}
+				swIxs = append(swIxs, ixs...)
+
+			}
+		}
+	}
+	return parts, swIxs
+
+}
+
+func DoRelease(
 	provider solana.PrivateKey,
 	stakingCampaignPrivateKey solana.PrivateKey,
-	releaseAuthority solana.PrivateKey,
 	stakingCampaignSmartWallet solana.PublicKey,
 	stakingCampaignSmartWalletDerived solana.PublicKey,
 	stakingCampaignSmartWalletDerivedBump uint8,
-) {
-	{
-		err := prepareInstructions(now, *stake, stakingCampaignSmartWalletDerived, stakingCampaignSmartWalletDerivedBump, stakingCampaignSmartWallet, provider, stakingCampaignPrivateKey, releaseAuthority)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-}
+	stake *typestructs.Stake,
+) int {
 
-func FundDerivedWalletWithReward(
-	provider solana.PrivateKey,
-	stakingCampaignSmartWalletDerived solana.PublicKey,
-	rewardSum uint64,
-) {
-	{
-		signers := make([]solana.PrivateKey, 0)
-		instructions := []solana.Instruction{
-			system.NewTransferInstructionBuilder().
-				SetFundingAccount(provider.PublicKey()).
-				SetLamports(1 * solana.LAMPORTS_PER_SOL).
-				SetRecipientAccount(stakingCampaignSmartWalletDerived).
-				Build(),
+	_, mints := solanarpc.GetMints(func() []solana.PublicKey {
+		candies := make([]solana.PublicKey, 0)
+		for _, c := range stake.CandyMachines {
+			candies = append(
+				candies,
+				c.Primitive,
+			)
 		}
-		log.Println("Transferring ", rewardSum, " SOL to Smart Wallet...")
-		SendTx(
-			"Fund Derived Wallet with FLOCK",
-			instructions,
-			append(signers, provider),
-			provider.PublicKey(),
+		return candies
+	}())
+	participants, swIxs := makeSwIxs(
+		1,
+		solanarpc.GetStakes,
+		stakingCampaignSmartWalletDerived,
+		mints,
+		0,
+		0,
+		stake,
+		nil,
+		provider,
+	)
+	log.Println(participants)
+
+	sumParticipants := func() float64 {
+		counter := float64(0)
+		for _, token := range participants {
+			counter = counter + float64(len(token))
+		}
+		return counter
+	}()
+
+	// chunks := sumParticipants / float64(offset)
+	// partitions := int(math.Ceil(chunks))
+
+	offset := 1
+	ranges := func() [][]int {
+		s := func() []int {
+			slice := make([]int, int64(sumParticipants))
+			for i := range slice {
+				slice[i] = i
+			}
+			return slice
+		}()
+		var j int
+		rngs := make([][]int, 0)
+		for i := 0; i < len(s); i += 1 {
+			j += offset
+			if j >= len(s) {
+				j = len(s)
+			}
+			start := i
+			end := j
+			rngs = append(
+				rngs,
+				[]int{
+					start,
+					end,
+				},
+			)
+		}
+		return rngs
+	}()
+
+	var epochs []epoch = make([]epoch, 0)
+	log.Println()
+	log.Println()
+	log.Println()
+	for _, partition := range ranges {
+		log.Println(partition)
+		epochs = append(
+			epochs,
+			epoch{
+				start: partition[0],
+				end:   partition[1],
+			},
 		)
 
+	}
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println("Epochs:")
+	log.Println(epochs)
+	log.Println()
+	log.Println()
+	log.Println()
+
+	var createWg sync.WaitGroup
+	for epochInd := range epochs {
+		// invoke `CreateTransaction` to create [transaction] account for epoch.
+		createWg.Add(1)
+		func(index int) {
+			// stakingCampaignTxAccount, stakingCampaignTxAccountBump := txAccs[epochInd].pubkey, txAccs[epochInd].bump
+			blankIx := token.NewTransferCheckedInstructionBuilder().
+				SetAmount(1).
+				SetDestinationAccount(solana.SystemProgramID).
+				SetMintAccount(stake.EntryTender.Primitive).
+				SetDecimals(0).
+				SetOwnerAccount(provider.PublicKey()).
+				SetSourceAccount(stake.EntryTender.Primitive).
+				Build()
+			{
+				stakingCampaignTxAccount, stakingCampaignTxAccountBump, stakingCampaignTxAccountIndex, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(index))
+				if err != nil {
+					panic(err)
+				}
+				log.Println("Fetched Transaction PDA for", index, stakingCampaignTxAccountIndex, "Tx address:", stakingCampaignTxAccount, stakingCampaignTxAccountBump)
+				blankXact, _ := blankIx.Data()
+				nftUpsertSx := smart_wallet.NewCreateTransactionInstructionBuilder().
+					SetBump(stakingCampaignTxAccountBump).
+					SetAbsIndex(stakingCampaignTxAccountIndex).
+					SetBufferSize(uint8(epochs[epochInd].end - epochs[epochInd].start)).
+					SetBlankXacts(append(
+						make([]smart_wallet.TXInstruction, 0),
+						smart_wallet.TXInstruction{
+							ProgramId: blankIx.ProgramID(),
+							Keys: func(accs []*solana.AccountMeta) (accounts []smart_wallet.TXAccountMeta) {
+								accounts = make([]smart_wallet.TXAccountMeta, 0)
+								for _, a := range accs {
+									accounts = append(accounts, smart_wallet.TXAccountMeta{
+										Pubkey:     a.PublicKey,
+										IsSigner:   false,
+										IsWritable: false,
+									})
+								}
+								return
+							}(blankIx.Accounts()),
+							Data: blankXact,
+						},
+					)).
+					SetSmartWalletAccount(stakingCampaignSmartWallet).
+					SetTransactionAccount(stakingCampaignTxAccount).
+					SetProposerAccount(provider.PublicKey()).
+					SetPayerAccount(provider.PublicKey()).
+					SetSystemProgramAccount(solana.SystemProgramID)
+
+				SendTx(
+					"Buffer Tx Account with Size of Blank Xact",
+					append(make([]solana.Instruction, 0), nftUpsertSx.Build()),
+					append(make([]solana.PrivateKey, 0), provider, stakingCampaignPrivateKey),
+					provider.PublicKey(),
+				)
+				createWg.Done()
+			}
+		}(epochInd)
+		tEnd := func(end int) int {
+			if end >= len(swIxs) {
+				return len(swIxs)
+			}
+			return end
+		}(epochs[epochInd].end)
+		epochs[epochInd].ixs = swIxs[epochs[epochInd].start:tEnd]
+		log.Println()
+		log.Println(epochInd, epochs[epochInd].start, tEnd)
+		log.Println()
+		log.Println(len(swIxs))
+		log.Println(len(epochs[epochInd].ixs))
+		log.Println()
+		log.Println()
+	}
+	createWg.Wait()
+
+	var wg sync.WaitGroup
+	for epochInd, epochData := range epochs {
+
+		log.Println("Fetching Transaction PDA for Epoch:", epochInd, len(epochData.ixs))
+		// stakingCampaignTxAccount, stakingCampaignTxAccountBump := txAccs[epochInd].pubkey, txAccs[epochInd].bump
+		stakingCampaignTxAccount, stakingCampaignTxAccountBump, _, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(err)
+		}
+		log.Println("Fetched Transaction PDA - Tx address:", stakingCampaignTxAccount)
+
+		for ixIndice, ix := range epochData.ixs {
+			wg.Add(1)
+			go func(index int, instruction smart_wallet.TXInstruction) {
+				log.Println("Proposing Release Transaction...")
+				log.Println(index, instruction)
+				nftUpsertSx := smart_wallet.NewAppendTransactionInstructionBuilder().
+					SetBump(stakingCampaignTxAccountBump).
+					SetInstructions(instruction).
+					SetIndex(uint64(index)).
+					SetOwnerAccount(provider.PublicKey()).
+					SetSmartWalletAccount(stakingCampaignSmartWallet).
+					SetTransactionAccount(stakingCampaignTxAccount).
+					Build()
+
+				// nftUpsertSx.AccountMetaSlice.Append(&solana.AccountMeta{PublicKey: stakingCampaignSmartWallet, IsWritable: true, IsSigner: false})
+				SendTx(
+					"Propose Reward Instruction",
+					append(make([]solana.Instruction, 0), nftUpsertSx),
+					append(make([]solana.PrivateKey, 0), provider),
+					provider.PublicKey(),
+				)
+				wg.Done()
+			}(ixIndice, ix)
+		}
+	}
+	wg.Wait()
+
+	for epochInd := range epochs {
+		stakingCampaignTxAccount, _, _, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(err)
+		}
+		{
+			approvXact0 := smart_wallet.NewApproveInstructionBuilder().
+				SetSmartWalletAccount(stakingCampaignSmartWallet).
+				SetOwnerAccount(stakingCampaignPrivateKey.PublicKey()).
+				SetTransactionAccount(stakingCampaignTxAccount).Build()
+
+			approvXact1 := smart_wallet.NewApproveInstructionBuilder().
+				SetSmartWalletAccount(stakingCampaignSmartWallet).
+				SetOwnerAccount(provider.PublicKey()).
+				SetTransactionAccount(stakingCampaignTxAccount).Build()
+
+			SendTx(
+				"APPROVE",
+				append(make([]solana.Instruction, 0), approvXact0, approvXact1),
+				append(make([]solana.PrivateKey, 0), provider, stakingCampaignPrivateKey),
+				provider.PublicKey(),
+			)
+
+		}
+	}
+
+	for epochInd, epochData := range epochs {
+		rewardAtas := func() (atas []solana.PublicKey) {
+			atas = make([]solana.PublicKey, 0)
+			for _, ix := range epochData.ixs {
+				for _, k := range ix.Keys {
+					atas = append(
+						atas,
+						k.Pubkey,
+					)
+				}
+			}
+			return
+		}()
+
+		log.Println("Fetching Transaction PDA for Epoch:", epochInd, len(epochData.ixs))
+		stakingCampaignSmartWalletDerivedE, _, err := getSmartWalletDerived(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(nil)
+		}
+		stakingCampaignTxAccount, _, _, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(err)
+		}
+
+		ix := smart_wallet.NewExecuteTransactionDerivedInstructionBuilder().
+			SetBump(stakingCampaignSmartWalletDerivedBump).
+			SetIndex(uint64(0)).
+			SetOwnerAccount(provider.PublicKey()).
+			SetSmartWalletAccount(stakingCampaignSmartWallet).
+			SetTransactionAccount(stakingCampaignTxAccount)
+
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stakingCampaignSmartWalletDerived, true, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stake.EntryTender.Primitive, false, false))
+		for _, ata := range rewardAtas {
+			ix.AccountMetaSlice.Append(solana.NewAccountMeta(ata, true, false))
+		}
+		// ix.AccountMetaSlice.Append(solana.NewAccountMeta(derivedAta, true, false))
+
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(solana.TokenProgramID, false, false))
+		// ix.AccountMetaSlice.Append(solana.NewAccountMeta(provider.PublicKey, false, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(solana.SystemProgramID, false, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stakingCampaignSmartWalletDerivedE, true, false))
+
+		SendTx(
+			"Exec",
+			append(
+				make([]solana.Instruction, 0),
+				ix.Build(),
+			),
+			append(make([]solana.PrivateKey, 0), provider, stakingCampaignPrivateKey),
+			provider.PublicKey(),
+		)
+	}
+
+	return len(epochs)
+}
+func DoRewards(
+	provider solana.PrivateKey,
+	stakingCampaignPrivateKey solana.PrivateKey,
+	stakingCampaignSmartWallet solana.PublicKey,
+	stakingCampaignSmartWalletDerived solana.PublicKey,
+	stakingCampaignSmartWalletDerivedBump uint8,
+	startDate int64,
+	endDate int64,
+	stake *typestructs.Stake,
+	derivedAta *solana.PublicKey,
+) int64 {
+
+	_, mints := solanarpc.GetMints(func() []solana.PublicKey {
+		candies := make([]solana.PublicKey, 0)
+		for _, c := range stake.CandyMachines {
+			candies = append(
+				candies,
+				c.Primitive,
+			)
+		}
+		return candies
+	}())
+	participants, swIxs := makeSwIxs(
+		0,
+		solanarpc.GetStakes,
+		stakingCampaignSmartWalletDerived,
+		mints,
+		startDate,
+		endDate,
+		stake,
+		derivedAta,
+		provider,
+	)
+	log.Println(participants)
+
+	/*
+		participants = func() (parties map[string][]solanarpc.LastAct) {
+			parties = make(map[string][]solanarpc.LastAct)
+			for owner, tokens := range participants {
+				for _, token := range tokens {
+					if token.Mint != stake.EntryTender.Primitive {
+						parties[owner] = append(
+							parties[owner],
+							token,
+						)
+					}
+				}
+
+			}
+			return
+		}()
+	*/
+
+	sumParticipants := func() float64 {
+		counter := float64(0)
+		for _, token := range participants {
+			counter = counter + float64(len(token))
+		}
+		return counter
+	}()
+
+	// chunks := sumParticipants / float64(offset)
+	// partitions := int(math.Ceil(chunks))
+
+	offset := 1
+	ranges := func() [][]int {
+		s := func() []int {
+			slice := make([]int, int64(sumParticipants))
+			for i := range slice {
+				slice[i] = i
+			}
+			return slice
+		}()
+		var j int
+		rngs := make([][]int, 0)
+		for i := 0; i < len(s); i += offset {
+			j += offset
+			if j >= len(s) {
+				j = len(s)
+			}
+			// do what do you want to with the sub-slice, here just printing the sub-slices
+			start := i
+			end := j
+			rngs = append(
+				rngs,
+				[]int{
+					start,
+					end,
+				},
+			)
+		}
+		return rngs
+	}()
+
+	var epochs []epoch = make([]epoch, 0)
+	log.Println()
+	log.Println()
+	log.Println()
+	for _, partition := range ranges {
+		log.Println(partition)
+		epochs = append(
+			epochs,
+			epoch{
+				start: partition[0],
+				end:   partition[1],
+			},
+		)
+
+	}
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println("Epochs:")
+	log.Println(epochs)
+	log.Println()
+	log.Println()
+	log.Println()
+
+	var createWg sync.WaitGroup
+	for epochInd := range epochs {
+		// invoke `CreateTransaction` to create [transaction] account for epoch.
+		createWg.Add(1)
+		func(index int) {
+			// stakingCampaignTxAccount, stakingCampaignTxAccountBump := txAccs[epochInd].pubkey, txAccs[epochInd].bump
+			blankIx := token.NewTransferCheckedInstructionBuilder().
+				SetAmount(1000000).
+				SetDestinationAccount(dstAta).
+				SetMintAccount(stake.EntryTender.Primitive).
+				SetDecimals(9).
+				SetOwnerAccount(provider.PublicKey()).
+				SetSourceAccount(stake.EntryTender.Primitive).
+				Build()
+			{
+				stakingCampaignTxAccount, stakingCampaignTxAccountBump, stakingCampaignTxAccountIndex, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(index))
+				if err != nil {
+					panic(err)
+				}
+				blankXact, _ := blankIx.Data()
+				log.Println("Creating Transaction Account of ", uint8(epochs[epochInd].end-epochs[epochInd].start), "via PDA for", stakingCampaignTxAccountIndex, "Tx address:", stakingCampaignTxAccount, stakingCampaignTxAccountBump)
+				nftUpsertSx := smart_wallet.NewCreateTransactionInstructionBuilder().
+					SetBump(stakingCampaignTxAccountBump).
+					SetAbsIndex(stakingCampaignTxAccountIndex).
+					SetBufferSize(uint8(epochs[epochInd].end - epochs[epochInd].start)).
+					SetBlankXacts(append(
+						make([]smart_wallet.TXInstruction, 0),
+						smart_wallet.TXInstruction{
+							ProgramId: blankIx.ProgramID(),
+							Keys: func(accs []*solana.AccountMeta) (accounts []smart_wallet.TXAccountMeta) {
+								accounts = make([]smart_wallet.TXAccountMeta, 0)
+								for _, a := range accs {
+									accounts = append(accounts, smart_wallet.TXAccountMeta{
+										Pubkey:     a.PublicKey,
+										IsSigner:   false,
+										IsWritable: false,
+									})
+								}
+								return
+							}(blankIx.Accounts()),
+							Data: blankXact,
+						},
+					)).
+					SetSmartWalletAccount(stakingCampaignSmartWallet).
+					SetTransactionAccount(stakingCampaignTxAccount).
+					SetProposerAccount(provider.PublicKey()).
+					SetPayerAccount(provider.PublicKey()).
+					SetSystemProgramAccount(solana.SystemProgramID)
+
+				SendTx(
+					"Buffer Tx Account with Size of Blank Xact",
+					append(make([]solana.Instruction, 0), nftUpsertSx.Build()),
+					append(make([]solana.PrivateKey, 0), provider, stakingCampaignPrivateKey),
+					provider.PublicKey(),
+				)
+				createWg.Done()
+			}
+		}(epochInd)
+		tEnd := func(end int) int {
+			if end >= len(swIxs) {
+				return len(swIxs)
+			}
+			return end
+		}(epochs[epochInd].end)
+		epochs[epochInd].ixs = swIxs[epochs[epochInd].start:tEnd]
+		log.Println()
+		log.Println(epochInd, epochs[epochInd].start, epochs[epochInd].end)
+		log.Println()
+		log.Println(len(swIxs))
+		log.Println(len(epochs[epochInd].ixs))
+		log.Println()
+		log.Println()
+	}
+	createWg.Wait()
+
+	var wg sync.WaitGroup
+	for epochInd, epochData := range epochs {
+
+		log.Println("Appending Transaction PDA for Epoch:", epochInd, len(epochData.ixs))
+		// stakingCampaignTxAccount, stakingCampaignTxAccountBump := txAccs[epochInd].pubkey, txAccs[epochInd].bump
+		stakingCampaignTxAccount, stakingCampaignTxAccountBump, _, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(err)
+		}
+		log.Println("Appending Transaction PDA - Tx address:", stakingCampaignTxAccount)
+
+		for ixIndice, ix := range epochData.ixs {
+			wg.Add(1)
+			go func(index int, instruction smart_wallet.TXInstruction) {
+				log.Println(instruction)
+				nftUpsertSx := smart_wallet.NewAppendTransactionInstructionBuilder().
+					SetBump(stakingCampaignTxAccountBump).
+					SetInstructions(instruction).
+					SetIndex(uint64(index)).
+					SetOwnerAccount(provider.PublicKey()).
+					SetSmartWalletAccount(stakingCampaignSmartWallet).
+					SetTransactionAccount(stakingCampaignTxAccount).
+					Build()
+
+				// nftUpsertSx.AccountMetaSlice.Append(&solana.AccountMeta{PublicKey: stakingCampaignSmartWallet, IsWritable: true, IsSigner: false})
+				log.Println("Proposing Reward Transaction...")
+				SendTx(
+					"Propose Reward Instruction",
+					append(make([]solana.Instruction, 0), nftUpsertSx),
+					append(make([]solana.PrivateKey, 0), provider),
+					provider.PublicKey(),
+				)
+				wg.Done()
+			}(ixIndice, ix)
+		}
+	}
+	wg.Wait()
+
+	for epochInd := range epochs {
+		stakingCampaignTxAccount, _, _, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(err)
+		}
+		{
+			approvXact0 := smart_wallet.NewApproveInstructionBuilder().
+				SetSmartWalletAccount(stakingCampaignSmartWallet).
+				SetOwnerAccount(stakingCampaignPrivateKey.PublicKey()).
+				SetTransactionAccount(stakingCampaignTxAccount).Build()
+
+			approvXact1 := smart_wallet.NewApproveInstructionBuilder().
+				SetSmartWalletAccount(stakingCampaignSmartWallet).
+				SetOwnerAccount(provider.PublicKey()).
+				SetTransactionAccount(stakingCampaignTxAccount).Build()
+
+			SendTx(
+				"APPROVE",
+				append(make([]solana.Instruction, 0), approvXact0, approvXact1),
+				append(make([]solana.PrivateKey, 0), provider, stakingCampaignPrivateKey),
+				provider.PublicKey(),
+			)
+
+		}
+	}
+
+	for epochInd, epochData := range epochs {
+		rewardAtas := func() (atas []solana.PublicKey) {
+			atas = make([]solana.PublicKey, 0)
+			for _, ix := range epochData.ixs {
+				for _, k := range ix.Keys {
+					atas = append(
+						atas,
+						k.Pubkey,
+					)
+				}
+			}
+			return
+		}()
+
+		log.Println("Executing Transaction PDA for Epoch:", epochInd, len(epochData.ixs))
+		stakingCampaignSmartWalletDerivedE, _, err := getSmartWalletDerived(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(nil)
+		}
+		stakingCampaignTxAccount, _, _, err := getTransactionAddress(stakingCampaignSmartWallet, uint64(epochInd))
+		if err != nil {
+			panic(err)
+		}
+
+		ix := smart_wallet.NewExecuteTransactionDerivedInstructionBuilder().
+			SetBump(stakingCampaignSmartWalletDerivedBump).
+			SetIndex(uint64(0)).
+			SetOwnerAccount(provider.PublicKey()).
+			SetSmartWalletAccount(stakingCampaignSmartWallet).
+			SetTransactionAccount(stakingCampaignTxAccount)
+
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stakingCampaignSmartWalletDerived, true, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stake.EntryTender.Primitive, false, false))
+		for _, ata := range rewardAtas {
+			ix.AccountMetaSlice.Append(solana.NewAccountMeta(ata, true, false))
+		}
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(dstAta, true, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(*derivedAta, true, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(solana.TokenProgramID, false, false))
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stakingCampaignSmartWalletDerivedE, true, false))
+
+		SendTx(
+			"Exec",
+			append(
+				make([]solana.Instruction, 0),
+				ix.Build(),
+			),
+			append(make([]solana.PrivateKey, 0), provider, stakingCampaignPrivateKey),
+			provider.PublicKey(),
+		)
+	}
+
+	return int64(len(epochs))
+}
+
+func fundWalletWithRewardToken(
+	provider solana.PrivateKey,
+	rewardMint solana.PublicKey,
+	tendFrom solana.PublicKey,
+	tendTo solana.PublicKey,
+	supplyAmount uint64,
+) {
+	tendFromAta := getTokenWallet(
+		tendFrom,
+		solana.MustPublicKeyFromBase58("DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"), // FLOCK ATA of OWNER
+	)
+	tendToAta := getTokenWallet(
+		tendTo,
+		solana.MustPublicKeyFromBase58("DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"), // FLOCK ATA of OWNER
+	)
+	{
+		// solana.MustPublicKeyFromBase58("J2ECBpvYC2UqGGTZJiTVV4nQpfXfCqW8qouZw6wXesgh")
+		{
+			signers := make([]solana.PrivateKey, 0)
+			instructions := []solana.Instruction{
+				token.NewTransferCheckedInstructionBuilder().
+					// SetAmount(10 * 1000000000).
+					SetAmount(calculatePreciseReward(float64(supplyAmount), 9)).
+					SetDecimals(9).
+					SetMintAccount(rewardMint).
+					SetDestinationAccount(tendToAta).
+					SetOwnerAccount(provider.PublicKey()).
+					SetSourceAccount(tendFromAta).
+					Build(),
+			}
+			SendTx(
+				"Fund _self_ to mint 1 token.",
+				instructions,
+				append(signers, provider),
+				provider.PublicKey(),
+			)
+		}
 	}
 }
 
@@ -125,8 +896,34 @@ func ScheduleWalletCallback(
 	if err != nil {
 		panic(err)
 	}
+	log.Println("Given Staking Wallet:", stakingCampaignSmartWallet)
+	log.Println("Given Staking Wallet Derived:", stakingCampaignSmartWalletDerived)
 
+	ataIx := associatedtokenaccount.NewCreateInstructionBuilder().
+		SetMint(stake.EntryTender.Primitive).
+		SetPayer(provider.PublicKey()).
+		SetWallet(stakingCampaignSmartWalletDerived).Build()
 	{
+		{
+			signers := make([]solana.PrivateKey, 0)
+			instructions := []solana.Instruction{
+				ataIx,
+				system.NewTransferInstructionBuilder().
+					SetFundingAccount(provider.PublicKey()).
+					SetLamports(1 * solana.LAMPORTS_PER_SOL).
+					SetRecipientAccount(stakingCampaignSmartWalletDerived).
+					Build(),
+			}
+			SendTx(
+				"Fund _self_ to mint 1 token.",
+				instructions,
+				append(signers, provider),
+				provider.PublicKey(),
+			)
+		}
+	}
+	{
+		derivedAta := ataIx.Accounts()[1].PublicKey
 		now := time.Now().UTC().Unix()
 		duration := stake.EndDate - now
 		log.Println("Now:", now, "End Date:", stake.EndDate, "Duration:", duration)
@@ -134,38 +931,72 @@ func ScheduleWalletCallback(
 		EVERY := int64(stake.RewardInterval)
 		epochs := (int(duration / EVERY))
 		for i := range make([]interface{}, epochs) {
+			// buffers = buffers + 1
 			log.Println("sleeping for EVERY", EVERY, fmt.Sprint(i+1, "/", epochs))
-			now := time.Now().Unix()
+			now := time.Now().UTC().Unix()
 			time.Sleep(time.Duration(EVERY) * time.Second)
-			doRewards(
-				now,
-				stake,
-				event,
+			end := time.Now().UTC().Unix()
+			txBuffers := DoRewards(
 				provider,
 				stakingCampaignPrivateKey,
-				releaseAuthority,
 				stakingCampaignSmartWallet,
 				stakingCampaignSmartWalletDerived,
 				stakingCampaignSmartWalletDerivedBump,
+				now,
+				end,
+				stake,
+				&derivedAta,
 			)
+			tmpBuffer := buffers[stakingCampaignSmartWallet.String()]
+			tmpBuffer.Inc()
+			tmpBuffer.Add(txBuffers)
+			buffers[stakingCampaignSmartWallet.String()] = tmpBuffer
 		}
 		REM := (int(stake.EndDate % EVERY))
 		if REM != 0 {
+			// buffers = buffers + 1
 			log.Println("Sleeping for REM", REM)
+			now := time.Now().UTC().Unix()
 			time.Sleep(time.Duration(REM) * time.Millisecond)
-			doRewards(
-				now,
-				stake,
-				event,
+			end := time.Now().UTC().Unix()
+			txBuffers := DoRewards(
 				provider,
 				stakingCampaignPrivateKey,
-				releaseAuthority,
 				stakingCampaignSmartWallet,
 				stakingCampaignSmartWalletDerived,
 				stakingCampaignSmartWalletDerivedBump,
+				now,
+				end,
+				stake,
+				&derivedAta,
 			)
+			tmpBuffer := buffers[stakingCampaignSmartWallet.String()]
+			tmpBuffer.Inc()
+			tmpBuffer.Add(txBuffers)
+			buffers[stakingCampaignSmartWallet.String()] = tmpBuffer
 		}
 	}
+	/*
+		log.Println("Sleeping for 1 minute...")
+		time.Sleep(1 * time.Minute)
+	*/
+
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println("Doing release!!!")
+	log.Println()
+	log.Println()
+	log.Println()
+
+	DoRelease(
+		provider,
+		stakingCampaignPrivateKey,
+		stakingCampaignSmartWallet,
+		stakingCampaignSmartWalletDerived,
+		stakingCampaignSmartWalletDerivedBump,
+		stake,
+	)
 	setProcessed(true)
 	buffer.Done()
 }
@@ -193,10 +1024,12 @@ func getSmartWalletDerived(
 func getTransactionAddress(
 	base solana.PublicKey,
 	index uint64,
-) (addr solana.PublicKey, bump uint8, err error) {
+) (addr solana.PublicKey, bump uint8, actualIndex uint64, err error) {
 	buf := make([]byte, 8)
+	tmpBuffer := buffers[base.String()]
+	actualIndex = index + uint64(tmpBuffer.Load())
 
-	binary.LittleEndian.PutUint64(buf, index)
+	binary.LittleEndian.PutUint64(buf, actualIndex)
 	addr, bump, err = solana.FindProgramAddress(
 		[][]byte{
 			[]byte("GokiTransaction"),
@@ -266,4 +1099,21 @@ func SendTx(
 		// return
 	}
 	log.Println(sig)
+}
+func getTokenWallet(
+	wallet solana.PublicKey,
+	mint solana.PublicKey,
+) solana.PublicKey {
+	addr, _, err := solana.FindProgramAddress(
+		[][]byte{
+			wallet.Bytes(),
+			solana.TokenProgramID.Bytes(),
+			mint.Bytes(),
+		},
+		solana.SPLAssociatedTokenAccountProgramID,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return addr
 }
