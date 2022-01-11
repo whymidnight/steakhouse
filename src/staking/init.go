@@ -28,6 +28,7 @@ func InitStakingCampaign(
 	releaseAuthority := solana.NewWallet()
 	candyMachines := []string{
 		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+		"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
 	}
 	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
 
@@ -41,12 +42,12 @@ func InitStakingCampaign(
 	_, stakeFile := typestructs.NewStake(
 		"Pondering",
 		"What is quack geese dont hurt me",
-		time.Now().UTC().Unix()+(60*10),
+		time.Now().UTC().Unix()+(60*8),
 		candyMachines,
 		stakingCampaign.PublicKey().String(),
 		entryTender,
 		60,
-		2,
+		1,
 	)
 	{
 		// init system account for staking campaign pubkey
@@ -123,6 +124,7 @@ func CreateStakingCampaign(
 	releaseAuthority := solana.NewWallet()
 	candyMachines := []string{
 		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+		"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
 	}
 	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
 
@@ -463,3 +465,4 @@ func Subscribe(OWNER solana.PrivateKey) {
 
 	sub.CloseEventConsumption()
 }
+

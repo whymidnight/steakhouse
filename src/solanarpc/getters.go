@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 
+	ag_binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/triptych-labs/anchor-escrow/v2/src/solanarpc/typestructs"
 )
 
 func GetStake(stakingCampaignDerivedWallet solana.PublicKey) {
@@ -228,7 +232,145 @@ func Tokens(owner solana.PublicKey) ([]byte, error) {
 	return body, nil
 }
 
-func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
+func GetMetadataAccountData(mint solana.PublicKey) ([]byte, error) {
+	metadataAccount := func(
+		mint solana.PublicKey,
+	) solana.PublicKey {
+		METAPLEX := solana.MustPublicKeyFromBase58("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+		addr, _, err := solana.FindProgramAddress(
+			[][]byte{
+				[]byte("metadata"),
+				METAPLEX.Bytes(),
+				mint.Bytes(),
+			},
+			METAPLEX,
+		)
+		if err != nil {
+			panic(err)
+		}
+		return addr
+	}(mint)
+
+	url := "https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/"
+	method := "POST"
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+     "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getAccountInfo",
+      "params": [
+        "%s",
+        {
+          "encoding": "base64"
+        }
+      ]
+    }`, metadataAccount))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return []byte{}, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return []byte{}, err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return []byte{}, err
+	}
+	return body, nil
+
+}
+
+func ResolveMintMeta(mint solana.PublicKey) (
+	decoded interface{},
+	isValid bool,
+) {
+	type typesI interface {
+		UnmarshalWithDecoder(*ag_binary.Decoder) error
+		MarshalWithEncoder(*ag_binary.Encoder) error
+	}
+
+	// slice of structs
+	ifaces := append(
+		make([]typesI, 0),
+		new(typestructs.Metadata),
+	)
+
+	invalid := 0
+	var result interface{}
+	for i := range ifaces {
+		iMeta := ifaces[i]
+
+		// Get Token Metadata
+		meta, err := GetMetadataAccountData(mint)
+		if err != nil {
+			invalid = invalid + 1
+			continue
+		}
+		// log.Println(string(meta))
+		var metaResp struct {
+			Result interface{} `json:"result"`
+		}
+		err = json.Unmarshal(meta, &metaResp)
+		if err != nil {
+			invalid = invalid + 1
+			continue
+		}
+		// log.Println(metaResp)
+		var metaStruct rpc.GetAccountInfoResult
+		err = json.Unmarshal(func(inp interface{}) []byte {
+			b, e := json.Marshal(inp)
+			if e != nil {
+				return []byte{}
+			}
+			// log.Println(string(b))
+			return b
+		}(metaResp.Result), &metaStruct)
+		if err != nil {
+			invalid = invalid + 1
+			continue
+		}
+		if metaStruct.Value == nil {
+			invalid = invalid + 1
+			continue
+		}
+		// log.Println(metaStruct.Value.Data)
+		decoder := ag_binary.NewBorshDecoder(metaStruct.Value.Data.GetBinary())
+		err = iMeta.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			invalid = invalid + 1
+			continue
+		}
+		/*
+			log.Println("-------")
+			log.Println(iMeta)
+			log.Println("-------")
+		*/
+		result = iMeta
+	}
+	if invalid == len(ifaces) {
+		return 0, false
+	}
+
+	return result, true
+}
+
+func GetStakes(stakingWallet solana.PublicKey, candyMachines []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
+	log.Println(
+		stakingWallet,
+		candyMachines,
+		excl,
+	)
 	stakes, err := Tokens(stakingWallet)
 	if err != nil {
 		panic(err)
@@ -241,12 +383,29 @@ func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey, excl []
 	}
 
 	lastActs := make([]LastAct, 0)
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 	for _, token := range meta.Result.Value {
 		if func() (isValid bool) {
-			for i := range mints {
-				// fmt.Println(mints[i], token.Account.Data.Parsed.Info.Mint)
-				// fmt.Println(mints[i].Equals(solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint)))
-				if mints[i].Equals(solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint)) {
+			// Validation logic is to employ xref metadata of mint
+			/*
+			   Get metadata of token mint
+			   if exists
+			       then resolve metadata into appropriate hueristic struct
+			       else omit from participation
+			*/
+			// log.Println(token.Account.Data.Parsed.Info.Mint)
+			metadataI, err := ResolveMintMeta(solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint))
+			if !err {
+				return false
+			}
+			metadata := metadataI.(*typestructs.Metadata)
+			for _, candyMachine := range candyMachines {
+				if metadata.UpdateAuthority.Equals(candyMachine) {
 					isValid = true
 					return
 				}
@@ -263,16 +422,23 @@ func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey, excl []
 				}
 				return true
 			}(solana.MustPublicKeyFromBase58(json.Mint)) {
+				log.Println(json.Mint)
+				log.Println()
+				log.Println()
+				log.Println()
+				log.Println()
 				lastActs = append(
 					lastActs,
 					GetLastAct(solana.MustPublicKeyFromBase58(json.Mint)),
 				)
+				log.Println("!!!", len(lastActs))
 			}
 
 			// UIAmount
 		}
 	}
 
+	log.Println("---!", lastActs)
 	owners := make(map[string][]LastAct)
 	for _, last := range lastActs {
 		owner := last.OwnerOG.String()
@@ -282,6 +448,7 @@ func GetStakes(stakingWallet solana.PublicKey, mints []solana.PublicKey, excl []
 		)
 
 	}
+	log.Println(owners)
 	return owners
 
 }
@@ -312,16 +479,17 @@ func GetMints(candyMachines []solana.PublicKey) (candies [][]solana.PublicKey, f
 			candyMachine := candyMachines[i]
 			mints, err := Tokens(candyMachine)
 			if err != nil {
-				panic(err)
+				log.Println(err)
 			}
 			var meta tokenAccountMeta
 			err = json.Unmarshal(mints, &meta)
 			if err != nil {
-				panic(err)
+				log.Println(err)
 			}
 			return func() (mintAddresses []solana.PublicKey) {
 				for mint := range meta.Result.Value {
 					address := meta.Result.Value[mint].Account.Data.Parsed.Info.Mint
+					// log.Println(candyMachine.String(), address)
 					mintAddresses = append(
 						mintAddresses,
 						solana.MustPublicKeyFromBase58(address),

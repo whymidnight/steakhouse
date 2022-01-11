@@ -1,0 +1,25 @@
+{
+  "Name": "Pondering",
+  "Description": "What is quack geese dont hurt me",
+  "EndDate": 1641797437,
+  "CandyMachines": [
+    {
+      "Primitive": "3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+      "Base58": "3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr"
+    },
+    {
+      "Primitive": "9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+      "Base58": "9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz"
+    }
+  ],
+  "StakingWallet": {
+    "Primitive": "49itJQWY81qtFrpNC8BqkzzGNdNJf4XsE5SrUgeWCKyG",
+    "Base58": "49itJQWY81qtFrpNC8BqkzzGNdNJf4XsE5SrUgeWCKyG"
+  },
+  "EntryTender": {
+    "Primitive": "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz",
+    "Base58": "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
+  },
+  "RewardInterval": 60,
+  "Reward": 1
+}
