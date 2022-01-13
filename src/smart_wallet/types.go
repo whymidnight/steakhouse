@@ -7,6 +7,105 @@ import (
 	ag_solanago "github.com/gagliardetto/solana-go"
 )
 
+type StakeData struct {
+	Duration      int32
+	GenesisEpoch  []byte
+	Name          []byte
+	RewardPot     int64
+	ProtectedGids []byte
+}
+
+func (obj StakeData) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+	// Serialize `Duration` param:
+	err = encoder.Encode(obj.Duration)
+	if err != nil {
+		return err
+	}
+	// Serialize `GenesisEpoch` param:
+	err = encoder.Encode(obj.GenesisEpoch)
+	if err != nil {
+		return err
+	}
+	// Serialize `Name` param:
+	err = encoder.Encode(obj.Name)
+	if err != nil {
+		return err
+	}
+	// Serialize `RewardPot` param:
+	err = encoder.Encode(obj.RewardPot)
+	if err != nil {
+		return err
+	}
+	// Serialize `ProtectedGids` param:
+	err = encoder.Encode(obj.ProtectedGids)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *StakeData) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+	// Deserialize `Duration`:
+	err = decoder.Decode(&obj.Duration)
+	if err != nil {
+		return err
+	}
+	// Deserialize `GenesisEpoch`:
+	err = decoder.Decode(&obj.GenesisEpoch)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Name`:
+	err = decoder.Decode(&obj.Name)
+	if err != nil {
+		return err
+	}
+	// Deserialize `RewardPot`:
+	err = decoder.Decode(&obj.RewardPot)
+	if err != nil {
+		return err
+	}
+	// Deserialize `ProtectedGids`:
+	err = decoder.Decode(&obj.ProtectedGids)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type TicketData struct {
+	EnrollmentEpoch []byte
+	Gid             uint8
+}
+
+func (obj TicketData) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+	// Serialize `EnrollmentEpoch` param:
+	err = encoder.Encode(obj.EnrollmentEpoch)
+	if err != nil {
+		return err
+	}
+	// Serialize `Gid` param:
+	err = encoder.Encode(obj.Gid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *TicketData) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+	// Deserialize `EnrollmentEpoch`:
+	err = decoder.Decode(&obj.EnrollmentEpoch)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Gid`:
+	err = decoder.Decode(&obj.Gid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type TXInstruction struct {
 	ProgramId ag_solanago.PublicKey
 	Keys      []TXAccountMeta

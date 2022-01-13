@@ -279,6 +279,178 @@ func (obj *Transaction) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err er
 	return nil
 }
 
+type Stake struct {
+	Bump          uint8
+	Duration      int32
+	GenesisEpoch  []byte
+	Name          []byte
+	RewardPot     int64
+	ProtectedGids []byte
+}
+
+var StakeDiscriminator = [8]byte{150, 197, 176, 29, 55, 132, 112, 149}
+
+func (obj Stake) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+	// Write account discriminator:
+	err = encoder.WriteBytes(StakeDiscriminator[:], false)
+	if err != nil {
+		return err
+	}
+	// Serialize `Bump` param:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Serialize `Duration` param:
+	err = encoder.Encode(obj.Duration)
+	if err != nil {
+		return err
+	}
+	// Serialize `GenesisEpoch` param:
+	err = encoder.Encode(obj.GenesisEpoch)
+	if err != nil {
+		return err
+	}
+	// Serialize `Name` param:
+	err = encoder.Encode(obj.Name)
+	if err != nil {
+		return err
+	}
+	// Serialize `RewardPot` param:
+	err = encoder.Encode(obj.RewardPot)
+	if err != nil {
+		return err
+	}
+	// Serialize `ProtectedGids` param:
+	err = encoder.Encode(obj.ProtectedGids)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *Stake) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+	// Read and check account discriminator:
+	{
+		discriminator, err := decoder.ReadTypeID()
+		if err != nil {
+			return err
+		}
+		if !discriminator.Equal(StakeDiscriminator[:]) {
+			return fmt.Errorf(
+				"wrong discriminator: wanted %s, got %s",
+				"[150 197 176 29 55 132 112 149]",
+				fmt.Sprint(discriminator[:]))
+		}
+	}
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Duration`:
+	err = decoder.Decode(&obj.Duration)
+	if err != nil {
+		return err
+	}
+	// Deserialize `GenesisEpoch`:
+	err = decoder.Decode(&obj.GenesisEpoch)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Name`:
+	err = decoder.Decode(&obj.Name)
+	if err != nil {
+		return err
+	}
+	// Deserialize `RewardPot`:
+	err = decoder.Decode(&obj.RewardPot)
+	if err != nil {
+		return err
+	}
+	// Deserialize `ProtectedGids`:
+	err = decoder.Decode(&obj.ProtectedGids)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type Ticket struct {
+	EnrollmentEpoch []byte
+	Bump            uint8
+	Gid             uint8
+	Mint            ag_solanago.PublicKey
+}
+
+var TicketDiscriminator = [8]byte{41, 228, 24, 165, 78, 90, 235, 200}
+
+func (obj Ticket) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+	// Write account discriminator:
+	err = encoder.WriteBytes(TicketDiscriminator[:], false)
+	if err != nil {
+		return err
+	}
+	// Serialize `EnrollmentEpoch` param:
+	err = encoder.Encode(obj.EnrollmentEpoch)
+	if err != nil {
+		return err
+	}
+	// Serialize `Bump` param:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Serialize `Gid` param:
+	err = encoder.Encode(obj.Gid)
+	if err != nil {
+		return err
+	}
+	// Serialize `Mint` param:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *Ticket) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+	// Read and check account discriminator:
+	{
+		discriminator, err := decoder.ReadTypeID()
+		if err != nil {
+			return err
+		}
+		if !discriminator.Equal(TicketDiscriminator[:]) {
+			return fmt.Errorf(
+				"wrong discriminator: wanted %s, got %s",
+				"[41 228 24 165 78 90 235 200]",
+				fmt.Sprint(discriminator[:]))
+		}
+	}
+	// Deserialize `EnrollmentEpoch`:
+	err = decoder.Decode(&obj.EnrollmentEpoch)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Gid`:
+	err = decoder.Decode(&obj.Gid)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type SubaccountInfo struct {
 	SmartWallet    ag_solanago.PublicKey
 	SubaccountType SubaccountType

@@ -49,15 +49,15 @@ func (inst *CreateTransaction) SetBufferSize(bufferSize uint8) *CreateTransactio
 	return inst
 }
 
-// SetBlankXacts sets the "blankXacts" parameter.
-func (inst *CreateTransaction) SetBlankXacts(blankXacts []TXInstruction) *CreateTransaction {
-	inst.BlankXacts = &blankXacts
-	return inst
-}
-
 // SetAbsIndex sets the "absIndex" parameter.
 func (inst *CreateTransaction) SetAbsIndex(absIndex uint64) *CreateTransaction {
 	inst.AbsIndex = &absIndex
+	return inst
+}
+
+// SetBlankXacts sets the "blankXacts" parameter.
+func (inst *CreateTransaction) SetBlankXacts(blankXacts []TXInstruction) *CreateTransaction {
+	inst.BlankXacts = &blankXacts
 	return inst
 }
 
@@ -142,11 +142,11 @@ func (inst *CreateTransaction) Validate() error {
 		if inst.BufferSize == nil {
 			return errors.New("BufferSize parameter is not set")
 		}
-		if inst.BlankXacts == nil {
-			return errors.New("BlankXacts parameter is not set")
-		}
 		if inst.AbsIndex == nil {
 			return errors.New("AbsIndex parameter is not set")
+		}
+		if inst.BlankXacts == nil {
+			return errors.New("BlankXacts parameter is not set")
 		}
 	}
 
@@ -183,8 +183,8 @@ func (inst *CreateTransaction) EncodeToTree(parent ag_treeout.Branches) {
 					instructionBranch.Child("Params[len=4]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
 						paramsBranch.Child(ag_format.Param("      Bump", *inst.Bump))
 						paramsBranch.Child(ag_format.Param("BufferSize", *inst.BufferSize))
-						paramsBranch.Child(ag_format.Param("BlankXacts", *inst.BlankXacts))
 						paramsBranch.Child(ag_format.Param("  AbsIndex", *inst.AbsIndex))
+						paramsBranch.Child(ag_format.Param("BlankXacts", *inst.BlankXacts))
 					})
 
 					// Accounts of the instruction:
@@ -251,8 +251,8 @@ func NewCreateTransactionInstruction(
 	// Parameters:
 	bump uint8,
 	bufferSize uint8,
-	blankXacts []TXInstruction,
 	absIndex uint64,
+	blankXacts []TXInstruction,
 	// Accounts:
 	smartWallet ag_solanago.PublicKey,
 	transaction ag_solanago.PublicKey,
@@ -262,8 +262,8 @@ func NewCreateTransactionInstruction(
 	return NewCreateTransactionInstructionBuilder().
 		SetBump(bump).
 		SetBufferSize(bufferSize).
-		SetBlankXacts(blankXacts).
 		SetAbsIndex(absIndex).
+		SetBlankXacts(blankXacts).
 		SetSmartWalletAccount(smartWallet).
 		SetTransactionAccount(transaction).
 		SetProposerAccount(proposer).

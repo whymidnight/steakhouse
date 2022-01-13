@@ -38,6 +38,14 @@ var (
 
 	Instruction_AppendTransaction = ag_binary.TypeID([8]byte{47, 83, 162, 77, 7, 48, 55, 138})
 
+	Instruction_CreateStake = ag_binary.TypeID([8]byte{201, 134, 55, 171, 2, 136, 228, 226})
+
+	Instruction_RegisterEntity = ag_binary.TypeID([8]byte{166, 52, 122, 244, 214, 116, 215, 255})
+
+	Instruction_ClaimEntity = ag_binary.TypeID([8]byte{152, 31, 227, 45, 93, 249, 219, 87})
+
+	Instruction_WithdrawEntity = ag_binary.TypeID([8]byte{117, 141, 134, 141, 159, 65, 75, 13})
+
 	Instruction_CreateTransactionWithTimelock = ag_binary.TypeID([8]byte{93, 252, 41, 108, 86, 76, 89, 237})
 
 	Instruction_Approve = ag_binary.TypeID([8]byte{69, 74, 217, 36, 115, 117, 97, 76})
@@ -66,6 +74,14 @@ func InstructionIDToName(id ag_binary.TypeID) string {
 		return "CreateTransaction"
 	case Instruction_AppendTransaction:
 		return "AppendTransaction"
+	case Instruction_CreateStake:
+		return "CreateStake"
+	case Instruction_RegisterEntity:
+		return "RegisterEntity"
+	case Instruction_ClaimEntity:
+		return "ClaimEntity"
+	case Instruction_WithdrawEntity:
+		return "WithdrawEntity"
 	case Instruction_CreateTransactionWithTimelock:
 		return "CreateTransactionWithTimelock"
 	case Instruction_Approve:
@@ -114,6 +130,18 @@ var InstructionImplDef = ag_binary.NewVariantDefinition(
 		},
 		{
 			"append_transaction", (*AppendTransaction)(nil),
+		},
+		{
+			"create_stake", (*CreateStake)(nil),
+		},
+		{
+			"register_entity", (*RegisterEntity)(nil),
+		},
+		{
+			"claim_entity", (*ClaimEntity)(nil),
+		},
+		{
+			"withdraw_entity", (*WithdrawEntity)(nil),
 		},
 		{
 			"create_transaction_with_timelock", (*CreateTransactionWithTimelock)(nil),
