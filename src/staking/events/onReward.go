@@ -1,24 +1,17 @@
 package events
 
 import (
+	"encoding/json"
 	"log"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
 )
 
-func ScheduleRewardsCallback(
-	smartWallet solana.PublicKey,
-	startingIndex int,
-	derivedBump uint8,
-	stakingCampaign solana.PrivateKey,
-	event *typestructs.TransactionCreateEvent) {
-	log.Println("Rewarding....")
-	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
-	_, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Println("Rewarded!!!")
+func ScheduleWithdrawCallback(
+	event *typestructs.WithdrawEntityEvent,
+) {
+	log.Println("Withdrawing....", event.Ticket, "from", event.SmartWallet)
+	j, _ := json.MarshalIndent(event, "", "  ")
+	log.Println(string(j))
+	log.Println("Withdrawn!!!")
 }

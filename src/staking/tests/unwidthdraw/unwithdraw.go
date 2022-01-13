@@ -13,6 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
+	"github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
 )
 
@@ -68,6 +69,9 @@ func init() {
 }
 
 func main() {
+	var threads sync.WaitGroup
+	threads.Add(1)
+	go events.NewAdhocEventListener(&threads)
 	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	provider, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key")
 	if err != nil {
@@ -174,6 +178,7 @@ func main() {
 		append(make([]solana.PrivateKey, 0), provider, mintWallet.PrivateKey),
 		provider.PublicKey(),
 	)
+
 	withdrawX := smart_wallet.NewWithdrawEntityInstructionBuilder().
 		SetBump(participationBump).
 		SetMint(mintWallet.PublicKey()).
@@ -189,27 +194,46 @@ func main() {
 		panic(e)
 	}
 
-	utils.SendTx(
+	utils.SendTxVent(
 		"Withdraw participant",
 		append(make([]solana.Instruction, 0), withdrawX.Build()),
-		append(make([]solana.PrivateKey, 0), provider, mintWallet.PrivateKey),
+		"WithdrawEntityEvent",
+		func(key solana.PublicKey) *solana.PrivateKey {
+			signers := append(make([]solana.PrivateKey, 0), provider, mintWallet.PrivateKey)
+			for _, candidate := range signers {
+				if candidate.PublicKey().Equals(key) {
+					return &candidate
+				}
+			}
+			return nil
+		},
 		provider.PublicKey(),
+		events.AccountMeta{
+			DerivedPublicKey:   stakingCampaignSmartWallet.String(),
+			DerivedBump:        0,
+			TxAccountPublicKey: solana.SystemProgramID.String(),
+			TxAccountBump:      0,
+		},
+		solana.NewWallet().PrivateKey,
+		"",
 	)
 	log.Println("Sleeping for 5 seconds...")
 	time.Sleep(5 * time.Second)
 
-	// Claim
-	func() {
-		var claimsWg sync.WaitGroup
-		for range []int{1, 2} {
-			claimsWg.Add(1)
-			go func() {
-				claimsWg.Done()
-			}()
-			time.Sleep(15 * time.Second)
-		}
-		claimsWg.Wait()
-	}()
+	/*
+		// Claim
+		func() {
+			var claimsWg sync.WaitGroup
+			for range []int{1, 2} {
+				claimsWg.Add(1)
+				go func() {
+					claimsWg.Done()
+				}()
+				time.Sleep(15 * time.Second)
+			}
+			claimsWg.Wait()
+		}()
+	*/
 
 	var ticket smart_wallet.Ticket
 	opts := rpc.GetAccountInfoOpts{

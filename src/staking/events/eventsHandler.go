@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
@@ -72,14 +71,45 @@ type Subscription struct {
 }
 type EventSubscriptions []EventSubscriptions
 
-type EventCodex struct {
-	Decoder *bin.Decoder
-	Bytes   []byte
+func NewAdhocEventListener(adhocWg *sync.WaitGroup) {
+	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	if err != nil {
+		log.Println("PANIC!!!", fmt.Errorf("unable to open WebSocket Client - %w", err))
+	}
+
+	sub, err := wsClient.LogsSubscribeMentions(smart_wallet.ProgramID, rpc.CommitmentConfirmed)
+	if err != nil {
+		panic(err)
+	}
+
+	adhocWg.Add(1)
+	go func() {
+		state := false
+		for {
+			if state {
+				adhocWg.Done()
+				state = false
+				continue
+			}
+			event, err := sub.Recv()
+			if err != nil {
+				log.Println(fmt.Errorf("ad hoc event recv panic: %w", err))
+			}
+			state = true
+			adhocWg.Add(1)
+			go ProcessAdhocEvents(event.Value.Logs, adhocWg)
+
+			continue
+		}
+	}()
+
+	adhocWg.Done()
+
 }
 
 // SubscribeToEvent RPC Method
 func (s *Subscriptions) SubscribeToEvent(args *Subscription, reply *int) error {
-	fmt.Println(args.TransactionSignature)
+	log.Println(args.TransactionSignature)
 	s.buffer.Add(1)
 
 	go func() {
