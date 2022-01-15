@@ -6,7 +6,6 @@ import (
 	eb "encoding/binary"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	bin "github.com/gagliardetto/binary"
@@ -52,7 +51,8 @@ func getParticipationAccount(
 ) (addr solana.PublicKey, bump uint8, err error) {
 	addr, bump, err = solana.FindProgramAddress(
 		[][]byte{
-			[]byte("Ticket"),
+			// []byte("Ticket"),
+			solana.SystemProgramID.Bytes(),
 			stakeWallet.Bytes(),
 			mint.Bytes(),
 		},
@@ -69,9 +69,8 @@ func init() {
 }
 
 func main() {
-	var threads sync.WaitGroup
-	threads.Add(1)
-	go events.NewAdhocEventListener(&threads)
+	// var threads sync.WaitGroup
+	// threads.Add(1)
 	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
 	provider, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key")
 	if err != nil {
@@ -154,19 +153,15 @@ func main() {
 		provider.PublicKey(),
 	)
 
-	ticketData := smart_wallet.TicketData{
-		EnrollmentEpoch: epoch,
-		Gid:             0,
-	}
 	ix := smart_wallet.NewRegisterEntityInstructionBuilder().
+		SetGid(0).
 		SetBump(participationBump).
 		SetMint(mintWallet.PublicKey()).
 		SetOwnerAccount(provider.PublicKey()).
 		SetPayerAccount(provider.PublicKey()).
 		SetSmartWalletAccount(stakingCampaignSmartWallet).
 		SetSystemProgramAccount(solana.SystemProgramID).
-		SetTicketAccount(participation).
-		SetTicketData(ticketData)
+		SetTicketAccount(participation)
 	e = ix.Validate()
 	if e != nil {
 		panic(e)
