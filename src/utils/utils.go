@@ -21,7 +21,7 @@ import (
 )
 
 func GetRecentBlockhash() *rpc.GetRecentBlockhashResult {
-	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	recent, err := rpcClient.GetRecentBlockhash(context.TODO(), rpc.CommitmentFinalized)
 	if err != nil {
 		panic(err)
@@ -41,8 +41,8 @@ func SendTxVent(
 	stakingCampaign solana.PrivateKey,
 	stakingFilePath string,
 ) (*bin.Decoder, []byte) {
-	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
-	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
+	wsClient, err := ws.Connect(context.TODO(), "wss://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	if err != nil {
 		panic(err)
 	}
@@ -78,10 +78,10 @@ func SendTxVent(
 		Stake:                    stakingFilePath,
 	}
 	events.SubscribeTransactionToEventLoop(subscription)
-	fmt.Println(eventName, subscription)
+	// fmt.Println(eventName, subscription)
 
-	tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
-	sig, err := sendAndConfirmTransaction.SendAndConfirmTransaction(
+	// tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
+	_, err = sendAndConfirmTransaction.SendAndConfirmTransaction(
 		context.TODO(),
 		rpcClient,
 		wsClient,
@@ -90,7 +90,7 @@ func SendTxVent(
 	if err != nil {
 		fmt.Println(err)
 	}
-	spew.Dump(sig)
+	// spew.Dump(sig)
 	return nil, nil
 
 }
@@ -100,8 +100,8 @@ func SendTx(
 	signers []solana.PrivateKey,
 	feePayer solana.PublicKey,
 ) {
-	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
-	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
+	wsClient, err := ws.Connect(context.TODO(), "wss://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	if err != nil {
 		panic(err)
 	}
@@ -214,7 +214,7 @@ func GetTransactionAddress(
 }
 
 func MustGetMinimumBalanceForRentExemption() uint64 {
-	rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 
 	minBalance, err := rpcClient.GetMinimumBalanceForRentExemption(
 		context.TODO(),
@@ -244,3 +244,4 @@ func GetTokenWallet(
 	}
 	return addr
 }
+

@@ -58,3 +58,10 @@ GetTokenAccountsByOwner -> forEach = token =>
 # ----------------------------------------------------------------------------------------------
 
 
+Instead of validating mint authenticity via comparing with token mints with that of mints associated to provided candy machine addresses,
+
+It would be advantageous to acquire and source the metadata of that NFT when evaluating validity then.
+
+
+
+

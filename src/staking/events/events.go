@@ -21,6 +21,14 @@ type AdhocEvent struct {
 var AdhocEvents = append(
 	make([]AdhocEvent, 0),
 	AdhocEvent{
+		InstructionName: "ClaimEntities",
+		EventName:       "ClaimEntitiesEvent",
+	},
+	AdhocEvent{
+		InstructionName: "ClaimEntity",
+		EventName:       "ClaimEntityEvent",
+	},
+	AdhocEvent{
 		InstructionName: "WithdrawEntity",
 		EventName:       "WithdrawEntityEvent",
 	},
@@ -55,7 +63,6 @@ func getEventLogs(subEventLogs []string, eventName string) []EventCodex {
 					discriminatorBytes := h.Sum(nil)[:8]
 
 					logger := strings.Split(logger, "Program log: ")[1]
-					log.Println(logger)
 					eventBytes, err := base64.StdEncoding.DecodeString(logger)
 					if err != nil {
 						panic(err)
@@ -99,7 +106,6 @@ func getEventLogs(subEventLogs []string, eventName string) []EventCodex {
 				discriminatorBytes := h.Sum(nil)[:8]
 
 				logger := strings.Split(logger, "Program log: ")[1]
-				log.Println(logger)
 				eventBytes, err := base64.StdEncoding.DecodeString(logger)
 				if err != nil {
 					panic(err)
@@ -120,7 +126,7 @@ func getEventLogs(subEventLogs []string, eventName string) []EventCodex {
 }
 func ProcessAdhocEvents(subEventLogs []string, buffer *sync.WaitGroup) error {
 	buffer.Add(1)
-	eventLogs := getEventLogs(subEventLogs, "ADVP")
+	eventLogs := getEventLogs(subEventLogs, "canbeanythingunsupported")
 	adhocEventNames := func() []string {
 		names := make([]string, 0)
 		for _, e := range AdhocEvents {
@@ -135,6 +141,19 @@ func ProcessAdhocEvents(subEventLogs []string, buffer *sync.WaitGroup) error {
 	for _, logger := range eventLogs {
 		switch logger.InstructionName {
 		case adhocEventNames[0]:
+			event := typestructs.ClaimEntitiesEvent{}
+			err := event.UnmarshalWithDecoder(logger.Decoder, logger.Bytes)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+
+			// set isScheduled
+			buffer.Add(1)
+			go ScheduleClaimEntitiesCallback(
+				&event,
+			)
+		case adhocEventNames[2]:
 			event := typestructs.WithdrawEntityEvent{}
 			err := event.UnmarshalWithDecoder(logger.Decoder, logger.Bytes)
 			if err != nil {

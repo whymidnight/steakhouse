@@ -7,16 +7,18 @@ import (
 	ag_solanago "github.com/gagliardetto/solana-go"
 )
 
-type WithdrawEntityEvent struct {
+type ClaimEntitiesEvent struct {
 	// smartWallet, owners []pubkey, threshold uint64, minimumDelay int64, timestamp int64
 	SmartWallet ag_solanago.PublicKey
-	Mint        ag_solanago.PublicKey
-	Ticket      ag_solanago.PublicKey
+	Duration    []uint8
+	LastEpoch   []uint8
+	Mints       uint32
+	Rollup      ag_solanago.PublicKey
 	Stake       ag_solanago.PublicKey
 	Owner       ag_solanago.PublicKey
 }
 
-func (obj WithdrawEntityEvent) MarshalWithEncoder(encoder *ag_binary.Encoder, eventDiscriminator []byte) (err error) {
+func (obj ClaimEntitiesEvent) MarshalWithEncoder(encoder *ag_binary.Encoder, eventDiscriminator []byte) (err error) {
 	// Write account discriminator:
 	err = encoder.WriteBytes(eventDiscriminator[:], false)
 	if err != nil {
@@ -27,13 +29,23 @@ func (obj WithdrawEntityEvent) MarshalWithEncoder(encoder *ag_binary.Encoder, ev
 	if err != nil {
 		return err
 	}
-	// Serialize `IsWritable` param:
-	err = encoder.Encode(obj.Mint)
+	// Serialize `IsSigner` param:
+	err = encoder.Encode(obj.Duration)
+	if err != nil {
+		return err
+	}
+	// Serialize `IsSigner` param:
+	err = encoder.Encode(obj.LastEpoch)
 	if err != nil {
 		return err
 	}
 	// Serialize `IsWritable` param:
-	err = encoder.Encode(obj.Ticket)
+	err = encoder.Encode(obj.Mints)
+	if err != nil {
+		return err
+	}
+	// Serialize `IsWritable` param:
+	err = encoder.Encode(obj.Rollup)
 	if err != nil {
 		return err
 	}
@@ -41,7 +53,6 @@ func (obj WithdrawEntityEvent) MarshalWithEncoder(encoder *ag_binary.Encoder, ev
 	if err != nil {
 		return err
 	}
-	// Serialize `IsSigner` param:
 	err = encoder.Encode(obj.Owner)
 	if err != nil {
 		return err
@@ -49,7 +60,7 @@ func (obj WithdrawEntityEvent) MarshalWithEncoder(encoder *ag_binary.Encoder, ev
 	return nil
 }
 
-func (obj *WithdrawEntityEvent) UnmarshalWithDecoder(decoder *ag_binary.Decoder, eventDiscriminator []byte) (err error) {
+func (obj *ClaimEntitiesEvent) UnmarshalWithDecoder(decoder *ag_binary.Decoder, eventDiscriminator []byte) (err error) {
 	{
 		discriminator, err := decoder.ReadTypeID()
 		if err != nil {
@@ -67,13 +78,23 @@ func (obj *WithdrawEntityEvent) UnmarshalWithDecoder(decoder *ag_binary.Decoder,
 	if err != nil {
 		return err
 	}
-	// Deserialize `IsWritable`:
-	err = decoder.Decode(&obj.Mint)
+	// Deserialize `IsSigner`:
+	err = decoder.Decode(&obj.Duration)
 	if err != nil {
 		return err
 	}
 	// Deserialize `IsWritable`:
-	err = decoder.Decode(&obj.Ticket)
+	err = decoder.Decode(&obj.LastEpoch)
+	if err != nil {
+		return err
+	}
+	// Deserialize `IsWritable`:
+	err = decoder.Decode(&obj.Mints)
+	if err != nil {
+		return err
+	}
+	// Deserialize `IsWritable`:
+	err = decoder.Decode(&obj.Rollup)
 	if err != nil {
 		return err
 	}
@@ -81,7 +102,6 @@ func (obj *WithdrawEntityEvent) UnmarshalWithDecoder(decoder *ag_binary.Decoder,
 	if err != nil {
 		return err
 	}
-	// Deserialize `IsSigner`:
 	err = decoder.Decode(&obj.Owner)
 	if err != nil {
 		return err

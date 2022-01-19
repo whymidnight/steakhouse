@@ -10,135 +10,122 @@ import (
 	ag_treeout "github.com/gagliardetto/treeout"
 )
 
-// WithdrawEntity is the `withdrawEntity` instruction.
-type WithdrawEntity struct {
+// ClaimEntities is the `claimEntities` instruction.
+type ClaimEntities struct {
 	Bump *uint8
 
 	// [0] = [WRITE] smartWallet
 	//
-	// [1] = [WRITE] stake
+	// [1] = [WRITE] rollup
 	//
-	// [2] = [WRITE] ticket
+	// [2] = [WRITE] stake
 	//
 	// [3] = [WRITE, SIGNER] payer
 	//
 	// [4] = [SIGNER] owner
 	//
-	// [5] = [] mint
-	//
-	// [6] = [] systemProgram
+	// [5] = [] systemProgram
 	ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
-// NewWithdrawEntityInstructionBuilder creates a new `WithdrawEntity` instruction builder.
-func NewWithdrawEntityInstructionBuilder() *WithdrawEntity {
-	nd := &WithdrawEntity{
-		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 7),
+// NewClaimEntitiesInstructionBuilder creates a new `ClaimEntities` instruction builder.
+func NewClaimEntitiesInstructionBuilder() *ClaimEntities {
+	nd := &ClaimEntities{
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 6),
 	}
 	return nd
 }
 
 // SetBump sets the "bump" parameter.
-func (inst *WithdrawEntity) SetBump(bump uint8) *WithdrawEntity {
+func (inst *ClaimEntities) SetBump(bump uint8) *ClaimEntities {
 	inst.Bump = &bump
 	return inst
 }
 
 // SetSmartWalletAccount sets the "smartWallet" account.
-func (inst *WithdrawEntity) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *WithdrawEntity {
+func (inst *ClaimEntities) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *ClaimEntities {
 	inst.AccountMetaSlice[0] = ag_solanago.Meta(smartWallet).WRITE()
 	return inst
 }
 
 // GetSmartWalletAccount gets the "smartWallet" account.
-func (inst *WithdrawEntity) GetSmartWalletAccount() *ag_solanago.AccountMeta {
+func (inst *ClaimEntities) GetSmartWalletAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[0]
 }
 
+// SetRollupAccount sets the "rollup" account.
+func (inst *ClaimEntities) SetRollupAccount(rollup ag_solanago.PublicKey) *ClaimEntities {
+	inst.AccountMetaSlice[1] = ag_solanago.Meta(rollup).WRITE()
+	return inst
+}
+
+// GetRollupAccount gets the "rollup" account.
+func (inst *ClaimEntities) GetRollupAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[1]
+}
+
 // SetStakeAccount sets the "stake" account.
-func (inst *WithdrawEntity) SetStakeAccount(stake ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[1] = ag_solanago.Meta(stake).WRITE()
+func (inst *ClaimEntities) SetStakeAccount(stake ag_solanago.PublicKey) *ClaimEntities {
+	inst.AccountMetaSlice[2] = ag_solanago.Meta(stake).WRITE()
 	return inst
 }
 
 // GetStakeAccount gets the "stake" account.
-func (inst *WithdrawEntity) GetStakeAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[1]
-}
-
-// SetTicketAccount sets the "ticket" account.
-func (inst *WithdrawEntity) SetTicketAccount(ticket ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[2] = ag_solanago.Meta(ticket).WRITE()
-	return inst
-}
-
-// GetTicketAccount gets the "ticket" account.
-func (inst *WithdrawEntity) GetTicketAccount() *ag_solanago.AccountMeta {
+func (inst *ClaimEntities) GetStakeAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[2]
 }
 
 // SetPayerAccount sets the "payer" account.
-func (inst *WithdrawEntity) SetPayerAccount(payer ag_solanago.PublicKey) *WithdrawEntity {
+func (inst *ClaimEntities) SetPayerAccount(payer ag_solanago.PublicKey) *ClaimEntities {
 	inst.AccountMetaSlice[3] = ag_solanago.Meta(payer).WRITE().SIGNER()
 	return inst
 }
 
 // GetPayerAccount gets the "payer" account.
-func (inst *WithdrawEntity) GetPayerAccount() *ag_solanago.AccountMeta {
+func (inst *ClaimEntities) GetPayerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[3]
 }
 
 // SetOwnerAccount sets the "owner" account.
-func (inst *WithdrawEntity) SetOwnerAccount(owner ag_solanago.PublicKey) *WithdrawEntity {
+func (inst *ClaimEntities) SetOwnerAccount(owner ag_solanago.PublicKey) *ClaimEntities {
 	inst.AccountMetaSlice[4] = ag_solanago.Meta(owner).SIGNER()
 	return inst
 }
 
 // GetOwnerAccount gets the "owner" account.
-func (inst *WithdrawEntity) GetOwnerAccount() *ag_solanago.AccountMeta {
+func (inst *ClaimEntities) GetOwnerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[4]
 }
 
-// SetMintAccount sets the "mint" account.
-func (inst *WithdrawEntity) SetMintAccount(mint ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[5] = ag_solanago.Meta(mint)
-	return inst
-}
-
-// GetMintAccount gets the "mint" account.
-func (inst *WithdrawEntity) GetMintAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[5]
-}
-
 // SetSystemProgramAccount sets the "systemProgram" account.
-func (inst *WithdrawEntity) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[6] = ag_solanago.Meta(systemProgram)
+func (inst *ClaimEntities) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *ClaimEntities {
+	inst.AccountMetaSlice[5] = ag_solanago.Meta(systemProgram)
 	return inst
 }
 
 // GetSystemProgramAccount gets the "systemProgram" account.
-func (inst *WithdrawEntity) GetSystemProgramAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[6]
+func (inst *ClaimEntities) GetSystemProgramAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[5]
 }
 
-func (inst WithdrawEntity) Build() *Instruction {
+func (inst ClaimEntities) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
 		Impl:   inst,
-		TypeID: Instruction_WithdrawEntity,
+		TypeID: Instruction_ClaimEntities,
 	}}
 }
 
 // ValidateAndBuild validates the instruction parameters and accounts;
 // if there is a validation error, it returns the error.
 // Otherwise, it builds and returns the instruction.
-func (inst WithdrawEntity) ValidateAndBuild() (*Instruction, error) {
+func (inst ClaimEntities) ValidateAndBuild() (*Instruction, error) {
 	if err := inst.Validate(); err != nil {
 		return nil, err
 	}
 	return inst.Build(), nil
 }
 
-func (inst *WithdrawEntity) Validate() error {
+func (inst *ClaimEntities) Validate() error {
 	// Check whether all (required) parameters are set:
 	{
 		if inst.Bump == nil {
@@ -152,10 +139,10 @@ func (inst *WithdrawEntity) Validate() error {
 			return errors.New("accounts.SmartWallet is not set")
 		}
 		if inst.AccountMetaSlice[1] == nil {
-			return errors.New("accounts.Stake is not set")
+			return errors.New("accounts.Rollup is not set")
 		}
 		if inst.AccountMetaSlice[2] == nil {
-			return errors.New("accounts.Ticket is not set")
+			return errors.New("accounts.Stake is not set")
 		}
 		if inst.AccountMetaSlice[3] == nil {
 			return errors.New("accounts.Payer is not set")
@@ -164,20 +151,17 @@ func (inst *WithdrawEntity) Validate() error {
 			return errors.New("accounts.Owner is not set")
 		}
 		if inst.AccountMetaSlice[5] == nil {
-			return errors.New("accounts.Mint is not set")
-		}
-		if inst.AccountMetaSlice[6] == nil {
 			return errors.New("accounts.SystemProgram is not set")
 		}
 	}
 	return nil
 }
 
-func (inst *WithdrawEntity) EncodeToTree(parent ag_treeout.Branches) {
+func (inst *ClaimEntities) EncodeToTree(parent ag_treeout.Branches) {
 	parent.Child(ag_format.Program(ProgramName, ProgramID)).
 		//
 		ParentFunc(func(programBranch ag_treeout.Branches) {
-			programBranch.Child(ag_format.Instruction("WithdrawEntity")).
+			programBranch.Child(ag_format.Instruction("ClaimEntities")).
 				//
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 
@@ -187,20 +171,19 @@ func (inst *WithdrawEntity) EncodeToTree(parent ag_treeout.Branches) {
 					})
 
 					// Accounts of the instruction:
-					instructionBranch.Child("Accounts[len=7]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
+					instructionBranch.Child("Accounts[len=6]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("  smartWallet", inst.AccountMetaSlice[0]))
-						accountsBranch.Child(ag_format.Meta("        stake", inst.AccountMetaSlice[1]))
-						accountsBranch.Child(ag_format.Meta("       ticket", inst.AccountMetaSlice[2]))
+						accountsBranch.Child(ag_format.Meta("       rollup", inst.AccountMetaSlice[1]))
+						accountsBranch.Child(ag_format.Meta("        stake", inst.AccountMetaSlice[2]))
 						accountsBranch.Child(ag_format.Meta("        payer", inst.AccountMetaSlice[3]))
 						accountsBranch.Child(ag_format.Meta("        owner", inst.AccountMetaSlice[4]))
-						accountsBranch.Child(ag_format.Meta("         mint", inst.AccountMetaSlice[5]))
-						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[6]))
+						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[5]))
 					})
 				})
 		})
 }
 
-func (obj WithdrawEntity) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+func (obj ClaimEntities) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	// Serialize `Bump` param:
 	err = encoder.Encode(obj.Bump)
 	if err != nil {
@@ -208,7 +191,7 @@ func (obj WithdrawEntity) MarshalWithEncoder(encoder *ag_binary.Encoder) (err er
 	}
 	return nil
 }
-func (obj *WithdrawEntity) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+func (obj *ClaimEntities) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
 	// Deserialize `Bump`:
 	err = decoder.Decode(&obj.Bump)
 	if err != nil {
@@ -217,25 +200,23 @@ func (obj *WithdrawEntity) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err
 	return nil
 }
 
-// NewWithdrawEntityInstruction declares a new WithdrawEntity instruction with the provided parameters and accounts.
-func NewWithdrawEntityInstruction(
+// NewClaimEntitiesInstruction declares a new ClaimEntities instruction with the provided parameters and accounts.
+func NewClaimEntitiesInstruction(
 	// Parameters:
 	bump uint8,
 	// Accounts:
 	smartWallet ag_solanago.PublicKey,
+	rollup ag_solanago.PublicKey,
 	stake ag_solanago.PublicKey,
-	ticket ag_solanago.PublicKey,
 	payer ag_solanago.PublicKey,
 	owner ag_solanago.PublicKey,
-	mint ag_solanago.PublicKey,
-	systemProgram ag_solanago.PublicKey) *WithdrawEntity {
-	return NewWithdrawEntityInstructionBuilder().
+	systemProgram ag_solanago.PublicKey) *ClaimEntities {
+	return NewClaimEntitiesInstructionBuilder().
 		SetBump(bump).
 		SetSmartWalletAccount(smartWallet).
+		SetRollupAccount(rollup).
 		SetStakeAccount(stake).
-		SetTicketAccount(ticket).
 		SetPayerAccount(payer).
 		SetOwnerAccount(owner).
-		SetMintAccount(mint).
 		SetSystemProgramAccount(systemProgram)
 }

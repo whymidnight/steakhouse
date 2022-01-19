@@ -32,7 +32,7 @@ type Subscriptions struct {
 }
 
 func InitEventConsumption() *Subscriptions {
-	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	wsClient, err := ws.Connect(context.TODO(), "wss://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	if err != nil {
 		log.Println("PANIC!!!", fmt.Errorf("unable to open WebSocket Client - %w", err))
 	}
@@ -72,7 +72,7 @@ type Subscription struct {
 type EventSubscriptions []EventSubscriptions
 
 func NewAdhocEventListener(adhocWg *sync.WaitGroup) {
-	wsClient, err := ws.Connect(context.TODO(), "wss://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	wsClient, err := ws.Connect(context.TODO(), "wss://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	if err != nil {
 		log.Println("PANIC!!!", fmt.Errorf("unable to open WebSocket Client - %w", err))
 	}

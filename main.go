@@ -4,10 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
@@ -19,6 +21,7 @@ var Provider solana.PrivateKey
 var Operation string
 
 func init() {
+	rand.Seed(time.Now().UnixNano())
 	var err error
 	var recover bool
 	flag.StringVar(&Operation, "operation", "", "Operation")
@@ -31,7 +34,7 @@ func init() {
 		panic(err)
 	}
 
-	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("AqQCUzA9EWMthbFMSUW3d5JPuNe1eLRCwLMS5CwDRS3D"))
+	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"))
 
 	if recover {
 		os.Remove("./.lock")
@@ -51,7 +54,7 @@ func main() {
 	   Runtime depends on `subscribe` before `create` as in order to operate independently.
 
 	*/
-	type funcOp func(solana.PrivateKey)
+	type funcOp func(solana.PrivateKey, uint64)
 	funcs := append(
 		make([]funcOp, 0),
 		SetupCloseHandler,
@@ -75,7 +78,7 @@ func main() {
 	for _, f := range funcs {
 		wg.Add(1)
 		go func(f funcOp, wg *sync.WaitGroup) {
-			f(Provider)
+			f(Provider, 0)
 			wg.Done()
 		}(f, &wg)
 	}
@@ -83,7 +86,7 @@ func main() {
 	fmt.Println("Done!!!")
 }
 
-func SetupCloseHandler(dontmindme solana.PrivateKey) {
+func SetupCloseHandler(dontmindme solana.PrivateKey, dontintme uint64) {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -93,3 +96,4 @@ func SetupCloseHandler(dontmindme solana.PrivateKey) {
 		os.Exit(0)
 	}()
 }
+

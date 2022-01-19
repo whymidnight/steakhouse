@@ -40,9 +40,13 @@ var (
 
 	Instruction_CreateStake = ag_binary.TypeID([8]byte{201, 134, 55, 171, 2, 136, 228, 226})
 
+	Instruction_RollupEntity = ag_binary.TypeID([8]byte{95, 120, 104, 158, 248, 66, 134, 145})
+
 	Instruction_RegisterEntity = ag_binary.TypeID([8]byte{166, 52, 122, 244, 214, 116, 215, 255})
 
-	Instruction_ClaimEntity = ag_binary.TypeID([8]byte{152, 31, 227, 45, 93, 249, 219, 87})
+	Instruction_ClaimEntities = ag_binary.TypeID([8]byte{49, 64, 204, 122, 243, 46, 61, 49})
+
+	Instruction_UpdateEntity = ag_binary.TypeID([8]byte{22, 25, 212, 236, 22, 130, 39, 73})
 
 	Instruction_WithdrawEntity = ag_binary.TypeID([8]byte{117, 141, 134, 141, 159, 65, 75, 13})
 
@@ -76,10 +80,14 @@ func InstructionIDToName(id ag_binary.TypeID) string {
 		return "AppendTransaction"
 	case Instruction_CreateStake:
 		return "CreateStake"
+	case Instruction_RollupEntity:
+		return "RollupEntity"
 	case Instruction_RegisterEntity:
 		return "RegisterEntity"
-	case Instruction_ClaimEntity:
-		return "ClaimEntity"
+	case Instruction_ClaimEntities:
+		return "ClaimEntities"
+	case Instruction_UpdateEntity:
+		return "UpdateEntity"
 	case Instruction_WithdrawEntity:
 		return "WithdrawEntity"
 	case Instruction_CreateTransactionWithTimelock:
@@ -135,10 +143,16 @@ var InstructionImplDef = ag_binary.NewVariantDefinition(
 			"create_stake", (*CreateStake)(nil),
 		},
 		{
+			"rollup_entity", (*RollupEntity)(nil),
+		},
+		{
 			"register_entity", (*RegisterEntity)(nil),
 		},
 		{
-			"claim_entity", (*ClaimEntity)(nil),
+			"claim_entities", (*ClaimEntities)(nil),
+		},
+		{
+			"update_entity", (*UpdateEntity)(nil),
 		},
 		{
 			"withdraw_entity", (*WithdrawEntity)(nil),

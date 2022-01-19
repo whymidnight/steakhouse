@@ -10,14 +10,13 @@ import (
 	ag_treeout "github.com/gagliardetto/treeout"
 )
 
-// RegisterEntity is the `registerEntity` instruction.
-type RegisterEntity struct {
+// UpdateEntity is the `updateEntity` instruction.
+type UpdateEntity struct {
 	Bump *uint8
-	Gid  *uint16
 
 	// [0] = [WRITE] smartWallet
 	//
-	// [1] = [WRITE] rollup
+	// [1] = [WRITE] stake
 	//
 	// [2] = [WRITE] ticket
 	//
@@ -27,132 +26,136 @@ type RegisterEntity struct {
 	//
 	// [5] = [] mint
 	//
-	// [6] = [] systemProgram
+	// [6] = [] tokenProgram
+	//
+	// [7] = [] systemProgram
 	ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
-// NewRegisterEntityInstructionBuilder creates a new `RegisterEntity` instruction builder.
-func NewRegisterEntityInstructionBuilder() *RegisterEntity {
-	nd := &RegisterEntity{
-		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 7),
+// NewUpdateEntityInstructionBuilder creates a new `UpdateEntity` instruction builder.
+func NewUpdateEntityInstructionBuilder() *UpdateEntity {
+	nd := &UpdateEntity{
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 8),
 	}
 	return nd
 }
 
 // SetBump sets the "bump" parameter.
-func (inst *RegisterEntity) SetBump(bump uint8) *RegisterEntity {
+func (inst *UpdateEntity) SetBump(bump uint8) *UpdateEntity {
 	inst.Bump = &bump
 	return inst
 }
 
-// SetGid sets the "gid" parameter.
-func (inst *RegisterEntity) SetGid(gid uint16) *RegisterEntity {
-	inst.Gid = &gid
-	return inst
-}
-
 // SetSmartWalletAccount sets the "smartWallet" account.
-func (inst *RegisterEntity) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *RegisterEntity {
+func (inst *UpdateEntity) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *UpdateEntity {
 	inst.AccountMetaSlice[0] = ag_solanago.Meta(smartWallet).WRITE()
 	return inst
 }
 
 // GetSmartWalletAccount gets the "smartWallet" account.
-func (inst *RegisterEntity) GetSmartWalletAccount() *ag_solanago.AccountMeta {
+func (inst *UpdateEntity) GetSmartWalletAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[0]
 }
 
-// SetRollupAccount sets the "rollup" account.
-func (inst *RegisterEntity) SetRollupAccount(rollup ag_solanago.PublicKey) *RegisterEntity {
-	inst.AccountMetaSlice[1] = ag_solanago.Meta(rollup).WRITE()
+// SetStakeAccount sets the "stake" account.
+func (inst *UpdateEntity) SetStakeAccount(stake ag_solanago.PublicKey) *UpdateEntity {
+	inst.AccountMetaSlice[1] = ag_solanago.Meta(stake).WRITE()
 	return inst
 }
 
-// GetRollupAccount gets the "rollup" account.
-func (inst *RegisterEntity) GetRollupAccount() *ag_solanago.AccountMeta {
+// GetStakeAccount gets the "stake" account.
+func (inst *UpdateEntity) GetStakeAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[1]
 }
 
 // SetTicketAccount sets the "ticket" account.
-func (inst *RegisterEntity) SetTicketAccount(ticket ag_solanago.PublicKey) *RegisterEntity {
+func (inst *UpdateEntity) SetTicketAccount(ticket ag_solanago.PublicKey) *UpdateEntity {
 	inst.AccountMetaSlice[2] = ag_solanago.Meta(ticket).WRITE()
 	return inst
 }
 
 // GetTicketAccount gets the "ticket" account.
-func (inst *RegisterEntity) GetTicketAccount() *ag_solanago.AccountMeta {
+func (inst *UpdateEntity) GetTicketAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[2]
 }
 
 // SetPayerAccount sets the "payer" account.
-func (inst *RegisterEntity) SetPayerAccount(payer ag_solanago.PublicKey) *RegisterEntity {
+func (inst *UpdateEntity) SetPayerAccount(payer ag_solanago.PublicKey) *UpdateEntity {
 	inst.AccountMetaSlice[3] = ag_solanago.Meta(payer).WRITE().SIGNER()
 	return inst
 }
 
 // GetPayerAccount gets the "payer" account.
-func (inst *RegisterEntity) GetPayerAccount() *ag_solanago.AccountMeta {
+func (inst *UpdateEntity) GetPayerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[3]
 }
 
 // SetOwnerAccount sets the "owner" account.
-func (inst *RegisterEntity) SetOwnerAccount(owner ag_solanago.PublicKey) *RegisterEntity {
+func (inst *UpdateEntity) SetOwnerAccount(owner ag_solanago.PublicKey) *UpdateEntity {
 	inst.AccountMetaSlice[4] = ag_solanago.Meta(owner).SIGNER()
 	return inst
 }
 
 // GetOwnerAccount gets the "owner" account.
-func (inst *RegisterEntity) GetOwnerAccount() *ag_solanago.AccountMeta {
+func (inst *UpdateEntity) GetOwnerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[4]
 }
 
 // SetMintAccount sets the "mint" account.
-func (inst *RegisterEntity) SetMintAccount(mint ag_solanago.PublicKey) *RegisterEntity {
+func (inst *UpdateEntity) SetMintAccount(mint ag_solanago.PublicKey) *UpdateEntity {
 	inst.AccountMetaSlice[5] = ag_solanago.Meta(mint)
 	return inst
 }
 
 // GetMintAccount gets the "mint" account.
-func (inst *RegisterEntity) GetMintAccount() *ag_solanago.AccountMeta {
+func (inst *UpdateEntity) GetMintAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[5]
 }
 
+// SetTokenProgramAccount sets the "tokenProgram" account.
+func (inst *UpdateEntity) SetTokenProgramAccount(tokenProgram ag_solanago.PublicKey) *UpdateEntity {
+	inst.AccountMetaSlice[6] = ag_solanago.Meta(tokenProgram)
+	return inst
+}
+
+// GetTokenProgramAccount gets the "tokenProgram" account.
+func (inst *UpdateEntity) GetTokenProgramAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[6]
+}
+
 // SetSystemProgramAccount sets the "systemProgram" account.
-func (inst *RegisterEntity) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *RegisterEntity {
-	inst.AccountMetaSlice[6] = ag_solanago.Meta(systemProgram)
+func (inst *UpdateEntity) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *UpdateEntity {
+	inst.AccountMetaSlice[7] = ag_solanago.Meta(systemProgram)
 	return inst
 }
 
 // GetSystemProgramAccount gets the "systemProgram" account.
-func (inst *RegisterEntity) GetSystemProgramAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[6]
+func (inst *UpdateEntity) GetSystemProgramAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[7]
 }
 
-func (inst RegisterEntity) Build() *Instruction {
+func (inst UpdateEntity) Build() *Instruction {
 	return &Instruction{BaseVariant: ag_binary.BaseVariant{
 		Impl:   inst,
-		TypeID: Instruction_RegisterEntity,
+		TypeID: Instruction_UpdateEntity,
 	}}
 }
 
 // ValidateAndBuild validates the instruction parameters and accounts;
 // if there is a validation error, it returns the error.
 // Otherwise, it builds and returns the instruction.
-func (inst RegisterEntity) ValidateAndBuild() (*Instruction, error) {
+func (inst UpdateEntity) ValidateAndBuild() (*Instruction, error) {
 	if err := inst.Validate(); err != nil {
 		return nil, err
 	}
 	return inst.Build(), nil
 }
 
-func (inst *RegisterEntity) Validate() error {
+func (inst *UpdateEntity) Validate() error {
 	// Check whether all (required) parameters are set:
 	{
 		if inst.Bump == nil {
 			return errors.New("Bump parameter is not set")
-		}
-		if inst.Gid == nil {
-			return errors.New("Gid parameter is not set")
 		}
 	}
 
@@ -162,7 +165,7 @@ func (inst *RegisterEntity) Validate() error {
 			return errors.New("accounts.SmartWallet is not set")
 		}
 		if inst.AccountMetaSlice[1] == nil {
-			return errors.New("accounts.Rollup is not set")
+			return errors.New("accounts.Stake is not set")
 		}
 		if inst.AccountMetaSlice[2] == nil {
 			return errors.New("accounts.Ticket is not set")
@@ -177,88 +180,81 @@ func (inst *RegisterEntity) Validate() error {
 			return errors.New("accounts.Mint is not set")
 		}
 		if inst.AccountMetaSlice[6] == nil {
+			return errors.New("accounts.TokenProgram is not set")
+		}
+		if inst.AccountMetaSlice[7] == nil {
 			return errors.New("accounts.SystemProgram is not set")
 		}
 	}
 	return nil
 }
 
-func (inst *RegisterEntity) EncodeToTree(parent ag_treeout.Branches) {
+func (inst *UpdateEntity) EncodeToTree(parent ag_treeout.Branches) {
 	parent.Child(ag_format.Program(ProgramName, ProgramID)).
 		//
 		ParentFunc(func(programBranch ag_treeout.Branches) {
-			programBranch.Child(ag_format.Instruction("RegisterEntity")).
+			programBranch.Child(ag_format.Instruction("UpdateEntity")).
 				//
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 
 					// Parameters of the instruction:
-					instructionBranch.Child("Params[len=2]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
+					instructionBranch.Child("Params[len=1]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
 						paramsBranch.Child(ag_format.Param("Bump", *inst.Bump))
-						paramsBranch.Child(ag_format.Param(" Gid", *inst.Gid))
 					})
 
 					// Accounts of the instruction:
-					instructionBranch.Child("Accounts[len=7]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
+					instructionBranch.Child("Accounts[len=8]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("  smartWallet", inst.AccountMetaSlice[0]))
-						accountsBranch.Child(ag_format.Meta("       rollup", inst.AccountMetaSlice[1]))
+						accountsBranch.Child(ag_format.Meta("        stake", inst.AccountMetaSlice[1]))
 						accountsBranch.Child(ag_format.Meta("       ticket", inst.AccountMetaSlice[2]))
 						accountsBranch.Child(ag_format.Meta("        payer", inst.AccountMetaSlice[3]))
 						accountsBranch.Child(ag_format.Meta("        owner", inst.AccountMetaSlice[4]))
 						accountsBranch.Child(ag_format.Meta("         mint", inst.AccountMetaSlice[5]))
-						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[6]))
+						accountsBranch.Child(ag_format.Meta(" tokenProgram", inst.AccountMetaSlice[6]))
+						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[7]))
 					})
 				})
 		})
 }
 
-func (obj RegisterEntity) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+func (obj UpdateEntity) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	// Serialize `Bump` param:
 	err = encoder.Encode(obj.Bump)
 	if err != nil {
 		return err
 	}
-	// Serialize `Gid` param:
-	err = encoder.Encode(obj.Gid)
-	if err != nil {
-		return err
-	}
 	return nil
 }
-func (obj *RegisterEntity) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+func (obj *UpdateEntity) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
 	// Deserialize `Bump`:
 	err = decoder.Decode(&obj.Bump)
-	if err != nil {
-		return err
-	}
-	// Deserialize `Gid`:
-	err = decoder.Decode(&obj.Gid)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// NewRegisterEntityInstruction declares a new RegisterEntity instruction with the provided parameters and accounts.
-func NewRegisterEntityInstruction(
+// NewUpdateEntityInstruction declares a new UpdateEntity instruction with the provided parameters and accounts.
+func NewUpdateEntityInstruction(
 	// Parameters:
 	bump uint8,
-	gid uint16,
 	// Accounts:
 	smartWallet ag_solanago.PublicKey,
-	rollup ag_solanago.PublicKey,
+	stake ag_solanago.PublicKey,
 	ticket ag_solanago.PublicKey,
 	payer ag_solanago.PublicKey,
 	owner ag_solanago.PublicKey,
 	mint ag_solanago.PublicKey,
-	systemProgram ag_solanago.PublicKey) *RegisterEntity {
-	return NewRegisterEntityInstructionBuilder().
+	tokenProgram ag_solanago.PublicKey,
+	systemProgram ag_solanago.PublicKey) *UpdateEntity {
+	return NewUpdateEntityInstructionBuilder().
 		SetBump(bump).
-		SetGid(gid).
 		SetSmartWalletAccount(smartWallet).
-		SetRollupAccount(rollup).
+		SetStakeAccount(stake).
 		SetTicketAccount(ticket).
 		SetPayerAccount(payer).
 		SetOwnerAccount(owner).
 		SetMintAccount(mint).
+		SetTokenProgramAccount(tokenProgram).
 		SetSystemProgramAccount(systemProgram)
 }

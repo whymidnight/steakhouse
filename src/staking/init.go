@@ -22,9 +22,17 @@ import (
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
 )
 
+var programAuthority = solana.MustPublicKeyFromBase58("Gh9SvLnFfZ7LVWv5tPdUK1RXRFphDfMLiUb2xKht8AMc")
+
 func InitStakingCampaign(
 	OWNER solana.PrivateKey,
+	ind uint64,
 ) {
+	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
+	provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
+	if err != nil {
+		panic(err)
+	}
 	releaseAuthority := solana.NewWallet()
 	candyMachines := []string{
 		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
@@ -39,15 +47,17 @@ func InitStakingCampaign(
 	if err != nil {
 		panic(nil)
 	}
-	_, stakeFile := typestructs.NewStake(
+	_, stakeFile, stakeCampaignIx := typestructs.NewStake(
+		OWNER,
 		"Pondering",
 		"What is quack geese dont hurt me",
-		time.Now().UTC().Unix()+(60*8),
+		time.Now().UTC().Unix()+(60*3),
 		candyMachines,
 		stakingCampaign.PublicKey().String(),
 		entryTender,
-		60,
+		60*1,
 		1,
+		ind,
 	)
 	{
 		// init system account for staking campaign pubkey
@@ -62,6 +72,8 @@ func InitStakingCampaign(
 					OWNER.PublicKey(),
 					stakingCampaign.PublicKey(),
 					releaseAuthority.PublicKey(),
+					provider.PublicKey(),
+					programAuthority,
 				)).
 				SetThreshold(2).
 				SetMinimumDelay(0).
@@ -93,6 +105,15 @@ func InitStakingCampaign(
 		)
 	}
 
+	{
+		utils.SendTx(
+			"Propose Release Instruction",
+			append(make([]solana.Instruction, 0), stakeCampaignIx),
+			append(make([]solana.PrivateKey, 0), OWNER),
+			OWNER.PublicKey(),
+		)
+	}
+
 	/*
 		derived, derivedBump, e := utils.GetSmartWalletDerived(stakingCampaignSmartWallet, uint64(0))
 		if e != nil {
@@ -116,15 +137,22 @@ func InitStakingCampaign(
 }
 func CreateStakingCampaign(
 	OWNER solana.PrivateKey,
+	ind uint64,
 ) (
 	stake *typestructs.Stake,
 	stakingCampaignPrivateKey solana.PrivateKey,
 	stakingCampaignSmartWallet solana.PublicKey,
 ) {
+	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
+	provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
+	if err != nil {
+		panic(err)
+	}
 	releaseAuthority := solana.NewWallet()
 	candyMachines := []string{
 		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
 		"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+		"86mzhAEwikBmbioAGma2DiCGrG1FiBQpRUbX6jFS1Ta6",
 	}
 	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
 
@@ -135,15 +163,18 @@ func CreateStakingCampaign(
 	if err != nil {
 		panic(nil)
 	}
-	stake, stakeFile := typestructs.NewStake(
+	duration := int64(60 * 5)
+	stake, stakeFile, stakeCampaignIx := typestructs.NewStake(
+		OWNER,
 		"Pondering",
 		"What is quack geese dont hurt me",
-		time.Now().UTC().Unix()+(60*60),
+		time.Now().UTC().Unix()+duration,
 		candyMachines,
-		stakingCampaign.PublicKey().String(),
+		stakingCampaignSmartWallet.String(),
 		entryTender,
-		60,
+		(duration / 2),
 		2,
+		ind,
 	)
 	{
 		// init system account for staking campaign pubkey
@@ -152,12 +183,14 @@ func CreateStakingCampaign(
 			"Create Smart Wallet",
 			append(make([]solana.Instruction, 0), smart_wallet.NewCreateSmartWalletInstructionBuilder().
 				SetBump(stakingCampaignSmartWalletBump).
-				SetMaxOwners(4).
+				SetMaxOwners(5).
 				SetOwners(append(
 					make([]solana.PublicKey, 0),
 					OWNER.PublicKey(),
 					stakingCampaign.PublicKey(),
 					releaseAuthority.PublicKey(),
+					provider.PublicKey(),
+					programAuthority,
 				)).
 				SetThreshold(2).
 				SetMinimumDelay(0).
@@ -186,6 +219,15 @@ func CreateStakingCampaign(
 			},
 			stakingCampaign.PrivateKey,
 			stakeFile,
+		)
+	}
+
+	{
+		utils.SendTx(
+			"Propose Release Instruction",
+			append(make([]solana.Instruction, 0), stakeCampaignIx),
+			append(make([]solana.PrivateKey, 0), OWNER),
+			OWNER.PublicKey(),
 		)
 	}
 
@@ -436,7 +478,7 @@ func InitTestAccounts(OWNER solana.PrivateKey) {
        * Resume from unexpected termination of runtime
        * Assure execution consistency
 */
-func Subscribe(OWNER solana.PrivateKey) {
+func Subscribe(OWNER solana.PrivateKey, dontinme uint64) {
 	var wg sync.WaitGroup
 
 	// create RPC server
@@ -455,6 +497,8 @@ func Subscribe(OWNER solana.PrivateKey) {
 		http.Serve(l, nil)
 		wg.Done()
 	}(&wg)
+	wg.Add(1)
+	go events.NewAdhocEventListener(&wg)
 
 	sub.ScheduleInThread("./cached")
 	go sub.ConsumeInThread("./cached")
@@ -465,4 +509,3 @@ func Subscribe(OWNER solana.PrivateKey) {
 
 	sub.CloseEventConsumption()
 }
-

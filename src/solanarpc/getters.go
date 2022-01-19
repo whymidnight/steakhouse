@@ -1,6 +1,7 @@
 package solanarpc
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,11 +12,33 @@ import (
 	ag_binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/solanarpc/typestructs"
 )
 
+func getSmartWalletDerived(
+	base solana.PublicKey,
+	index uint64,
+) (addr solana.PublicKey, bump uint8, err error) {
+	buf := make([]byte, 8)
+
+	binary.LittleEndian.PutUint64(buf, index)
+	addr, bump, err = solana.FindProgramAddress(
+		[][]byte{
+			[]byte("GokiSmartWalletDerived"),
+			base.Bytes(),
+			buf,
+		},
+		smart_wallet.ProgramID,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 func GetStake(stakingCampaignDerivedWallet solana.PublicKey) {
-	// rpcClient := rpc.New("https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/")
+	// rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 
 }
 
@@ -25,6 +48,7 @@ type tokenAccountMetaValue struct {
 			Parsed struct {
 				Info struct {
 					Mint        string `json:"mint"`
+					Owner       string `json:"owner"`
 					TokenAmount struct {
 						UIAmount float64 `json:"uiAmount"`
 					} `json:"tokenAmount"`
@@ -32,6 +56,7 @@ type tokenAccountMetaValue struct {
 			} `json:"parsed"`
 		} `json:"data"`
 	} `json:"account"`
+	Pubkey string `json:"pubkey"`
 }
 type tokenAccountMetaResult struct {
 	Value []tokenAccountMetaValue `json:"value"`
@@ -68,18 +93,28 @@ func LastSig(address solana.PublicKey) (solana.Signature, int64) {
 
 type Transaction struct {
 	Result struct {
-		Meta struct {
-			InnerInstructions []struct {
-				Instructions []struct {
-					Parsed struct {
-						Info struct {
-							Source string `json:"source"`
-						} `json:"info"`
-						Type string `json:"type"`
-					} `json:"parsed"`
-				} `json:"instructions"`
-			} `json:"innerInstructions"`
-		} `json:"meta"`
+		/*
+			Meta struct {
+				InnerInstructions []struct {
+					Instructions []struct {
+						Parsed struct {
+							Info struct {
+								Source string `json:"source"`
+							} `json:"info"`
+							Type string `json:"type"`
+						} `json:"parsed"`
+					} `json:"instructions"`
+				} `json:"innerInstructions"`
+			} `json:"meta"`
+		*/
+		Transaction struct {
+			Message struct {
+				RecentBlockhash string `json:"recentBlockhash"`
+				AccountKeys     []struct {
+					Pubkey string `json:"pubkey"`
+				} `json:"accountKeys"`
+			} `json:"message"`
+		} `json:"transaction"`
 	} `json:"result"`
 }
 
@@ -95,21 +130,17 @@ func GetLastInfo(signature solana.Signature) (owner *solana.PublicKey) {
 		panic(err)
 	}
 
-	for _, innerIx := range transaction.Result.Meta.InnerInstructions {
-		for _, ix := range innerIx.Instructions {
-			if ix.Parsed.Type == "transfer" {
-				owner = solana.MustPublicKeyFromBase58(ix.Parsed.Info.Source).ToPointer()
-				return
-			}
-		}
+	if len(transaction.Result.Transaction.Message.AccountKeys) == 0 {
+		return nil
 	}
+	owner = solana.MustPublicKeyFromBase58(transaction.Result.Transaction.Message.AccountKeys[1].Pubkey).ToPointer()
 
-	return nil
+	return
 }
 
 func Info(signature solana.Signature) ([]byte, error) {
 
-	url := "https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/"
+	url := "https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/"
 	method := "POST"
 
 	payload := strings.NewReader(fmt.Sprintf(`{
@@ -149,7 +180,7 @@ func Info(signature solana.Signature) ([]byte, error) {
 }
 func Sigs(address solana.PublicKey) ([]byte, error) {
 
-	url := "https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/"
+	url := "https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/"
 	method := "POST"
 
 	payload := strings.NewReader(fmt.Sprintf(`{
@@ -190,7 +221,7 @@ func Sigs(address solana.PublicKey) ([]byte, error) {
 
 func Tokens(owner solana.PublicKey) ([]byte, error) {
 
-	url := "https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/"
+	url := "https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/"
 	method := "POST"
 
 	payload := strings.NewReader(fmt.Sprintf(`{
@@ -251,7 +282,7 @@ func GetMetadataAccountData(mint solana.PublicKey) ([]byte, error) {
 		return addr
 	}(mint)
 
-	url := "https://delicate-wispy-wildflower.solana-devnet.quiknode.pro/1df6bbddc925a6b9436c7be27738edcf155f68e4/"
+	url := "https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/"
 	method := "POST"
 
 	payload := strings.NewReader(fmt.Sprintf(`{
@@ -344,18 +375,12 @@ func ResolveMintMeta(mint solana.PublicKey) (
 			invalid = invalid + 1
 			continue
 		}
-		// log.Println(metaStruct.Value.Data)
 		decoder := ag_binary.NewBorshDecoder(metaStruct.Value.Data.GetBinary())
 		err = iMeta.UnmarshalWithDecoder(decoder)
 		if err != nil {
 			invalid = invalid + 1
 			continue
 		}
-		/*
-			log.Println("-------")
-			log.Println(iMeta)
-			log.Println("-------")
-		*/
 		result = iMeta
 	}
 	if invalid == len(ifaces) {
@@ -365,7 +390,74 @@ func ResolveMintMeta(mint solana.PublicKey) (
 	return result, true
 }
 
-func GetStakes(stakingWallet solana.PublicKey, candyMachines []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
+func GetStakesFromClaimEvent(stakingWallet solana.PublicKey, owners []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
+	/*
+
+	   Reduce previous owner mints from stakingWallet
+	   Derive Ticket accounts from mints
+
+	*/
+	stakes, err := Tokens(stakingWallet)
+	if err != nil {
+		panic(err)
+	}
+	var stakeTokens tokenAccountMeta
+	err = json.Unmarshal(stakes, &stakeTokens)
+	if err != nil {
+		panic(err)
+	}
+	ownerMints, err := Tokens(owners[0])
+	if err != nil {
+		panic(err)
+	}
+	var ownerMintsTokens tokenAccountMeta
+	err = json.Unmarshal(ownerMints, &ownerMintsTokens)
+	if err != nil {
+		panic(err)
+	}
+
+	contains := func(mint string) bool {
+		for _, ownerMintToken := range ownerMintsTokens.Result.Value {
+			if ownerMintToken.Account.Data.Parsed.Info.Mint == mint && ownerMintToken.Account.Data.Parsed.Info.TokenAmount.UIAmount == 0.0 {
+				return true
+			}
+		}
+		return false
+	}
+
+	lastActs := make([]LastAct, 0)
+	for _, token := range stakeTokens.Result.Value {
+		if token.Account.Data.Parsed.Info.TokenAmount.UIAmount == 1.0 && contains(token.Account.Data.Parsed.Info.Mint) {
+			lastActs = append(
+				lastActs,
+				LastAct{
+					Mint:      solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint),
+					OwnerOG:   owners[0],
+					Signature: solana.Signature{},
+					BlockTime: 0,
+				},
+			)
+		}
+	}
+
+	ownerActs := make(map[string][]LastAct)
+	for _, last := range lastActs {
+		owner := last.OwnerOG.String()
+		ownerActs[owner] = append(
+			ownerActs[owner],
+			last,
+		)
+
+	}
+	log.Println(ownerActs)
+	return ownerActs
+
+}
+func GetStakes(smartWallet solana.PublicKey, candyMachines []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
+	stakingWallet, _, err := getSmartWalletDerived(smartWallet, uint64(0))
+	if err != nil {
+		panic(nil)
+	}
 	log.Println(
 		stakingWallet,
 		candyMachines,
@@ -429,7 +521,7 @@ func GetStakes(stakingWallet solana.PublicKey, candyMachines []solana.PublicKey,
 				log.Println()
 				lastActs = append(
 					lastActs,
-					GetLastAct(solana.MustPublicKeyFromBase58(json.Mint)),
+					GetLastAct(stakingWallet, solana.MustPublicKeyFromBase58(json.Mint)),
 				)
 				log.Println("!!!", len(lastActs))
 			}
@@ -454,21 +546,86 @@ func GetStakes(stakingWallet solana.PublicKey, candyMachines []solana.PublicKey,
 }
 
 type LastAct struct {
-	Mint      solana.PublicKey
-	OwnerOG   solana.PublicKey
-	Signature solana.Signature
-	BlockTime int64
+	Mint       solana.PublicKey
+	OwnerOG    solana.PublicKey
+	OwnerATA   solana.PublicKey
+	StakingATA solana.PublicKey
+	Signature  solana.Signature
+	BlockTime  int64
 }
 
-func GetLastAct(mint solana.PublicKey) LastAct {
-	signature, blockTime := LastSig(mint)
+func Holder(stakeWallet, mint solana.PublicKey) *solana.PublicKey {
+	log.Println("---.......---", stakeWallet, mint)
+	url := "https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/"
+	method := "POST"
+
+	payload := strings.NewReader(fmt.Sprintf(`{
+     "jsonrpc": "2.0",
+      "id": 1,
+      "method": "getTokenAccountsByOwner",
+      "params": [
+        "%s",
+        {
+          "mint": "%s"
+        },
+        {
+          "encoding": "jsonParsed"
+        }
+      ]
+    }`, stakeWallet, mint))
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	var atas tokenAccountMeta
+	err = json.Unmarshal(body, &atas)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for _, ata := range atas.Result.Value {
+		if ata.Account.Data.Parsed.Info.Owner == stakeWallet.String() {
+			return solana.MustPublicKeyFromBase58(ata.Pubkey).ToPointer()
+		}
+	}
+
+	return nil
+}
+
+func GetLastAct(stakeWallet, mint solana.PublicKey) LastAct {
+	stakingHolder := Holder(stakeWallet, mint)
+	if stakingHolder == nil {
+		panic(stakingHolder)
+	}
+	log.Println(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", stakingHolder)
+	signature, blockTime := LastSig(*stakingHolder)
 	owner := GetLastInfo(signature)
+	log.Println(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", owner)
 
 	return LastAct{
-		Mint:      mint,
-		OwnerOG:   *owner,
-		Signature: signature,
-		BlockTime: blockTime,
+		Mint:       mint,
+		OwnerOG:    *owner,
+		StakingATA: *stakingHolder,
+		Signature:  signature,
+		BlockTime:  blockTime,
 	}
 }
 

@@ -285,7 +285,8 @@ type Stake struct {
 	GenesisEpoch  []byte
 	Name          []byte
 	RewardPot     int64
-	ProtectedGids []byte
+	ProtectedGids []uint16
+	Uuid          []byte
 }
 
 var StakeDiscriminator = [8]byte{150, 197, 176, 29, 55, 132, 112, 149}
@@ -323,6 +324,11 @@ func (obj Stake) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	}
 	// Serialize `ProtectedGids` param:
 	err = encoder.Encode(obj.ProtectedGids)
+	if err != nil {
+		return err
+	}
+	// Serialize `Uuid` param:
+	err = encoder.Encode(obj.Uuid)
 	if err != nil {
 		return err
 	}
@@ -373,14 +379,20 @@ func (obj *Stake) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
 	if err != nil {
 		return err
 	}
+	// Deserialize `Uuid`:
+	err = decoder.Decode(&obj.Uuid)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 type Ticket struct {
 	EnrollmentEpoch []byte
 	Bump            uint8
-	Gid             uint8
+	Gid             uint16
 	Mint            ag_solanago.PublicKey
+	Owner           ag_solanago.PublicKey
 }
 
 var TicketDiscriminator = [8]byte{41, 228, 24, 165, 78, 90, 235, 200}
@@ -408,6 +420,11 @@ func (obj Ticket) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
 	}
 	// Serialize `Mint` param:
 	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return err
+	}
+	// Serialize `Owner` param:
+	err = encoder.Encode(obj.Owner)
 	if err != nil {
 		return err
 	}
@@ -445,6 +462,86 @@ func (obj *Ticket) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) 
 	}
 	// Deserialize `Mint`:
 	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Owner`:
+	err = decoder.Decode(&obj.Owner)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type Rollup struct {
+	Bump      uint8
+	Timestamp []byte
+	Gid       uint16
+	Mints     uint32
+}
+
+var RollupDiscriminator = [8]byte{144, 67, 201, 217, 26, 82, 108, 106}
+
+func (obj Rollup) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
+	// Write account discriminator:
+	err = encoder.WriteBytes(RollupDiscriminator[:], false)
+	if err != nil {
+		return err
+	}
+	// Serialize `Bump` param:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Serialize `Timestamp` param:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return err
+	}
+	// Serialize `Gid` param:
+	err = encoder.Encode(obj.Gid)
+	if err != nil {
+		return err
+	}
+	// Serialize `Mints` param:
+	err = encoder.Encode(obj.Mints)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *Rollup) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
+	// Read and check account discriminator:
+	{
+		discriminator, err := decoder.ReadTypeID()
+		if err != nil {
+			return err
+		}
+		if !discriminator.Equal(RollupDiscriminator[:]) {
+			return fmt.Errorf(
+				"wrong discriminator: wanted %s, got %s",
+				"[144 67 201 217 26 82 108 106]",
+				fmt.Sprint(discriminator[:]))
+		}
+	}
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Gid`:
+	err = decoder.Decode(&obj.Gid)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Mints`:
+	err = decoder.Decode(&obj.Mints)
 	if err != nil {
 		return err
 	}

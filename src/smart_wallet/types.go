@@ -12,7 +12,8 @@ type StakeData struct {
 	GenesisEpoch  []byte
 	Name          []byte
 	RewardPot     int64
-	ProtectedGids []byte
+	ProtectedGids []uint16
+	Uuid          []byte
 }
 
 func (obj StakeData) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
@@ -38,6 +39,11 @@ func (obj StakeData) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) 
 	}
 	// Serialize `ProtectedGids` param:
 	err = encoder.Encode(obj.ProtectedGids)
+	if err != nil {
+		return err
+	}
+	// Serialize `Uuid` param:
+	err = encoder.Encode(obj.Uuid)
 	if err != nil {
 		return err
 	}
@@ -70,36 +76,8 @@ func (obj *StakeData) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err erro
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-type TicketData struct {
-	EnrollmentEpoch []byte
-	Gid             uint8
-}
-
-func (obj TicketData) MarshalWithEncoder(encoder *ag_binary.Encoder) (err error) {
-	// Serialize `EnrollmentEpoch` param:
-	err = encoder.Encode(obj.EnrollmentEpoch)
-	if err != nil {
-		return err
-	}
-	// Serialize `Gid` param:
-	err = encoder.Encode(obj.Gid)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (obj *TicketData) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
-	// Deserialize `EnrollmentEpoch`:
-	err = decoder.Decode(&obj.EnrollmentEpoch)
-	if err != nil {
-		return err
-	}
-	// Deserialize `Gid`:
-	err = decoder.Decode(&obj.Gid)
+	// Deserialize `Uuid`:
+	err = decoder.Decode(&obj.Uuid)
 	if err != nil {
 		return err
 	}
