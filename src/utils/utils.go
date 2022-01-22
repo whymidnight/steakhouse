@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/gagliardetto/solana-go/programs/token"
 	sendAndConfirmTransaction "github.com/gagliardetto/solana-go/rpc/sendAndConfirmTransaction"
+	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/gagliardetto/solana-go/text"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	events "github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
@@ -17,7 +19,6 @@ import (
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/gagliardetto/solana-go/rpc/ws"
 )
 
 func GetRecentBlockhash() *rpc.GetRecentBlockhashResult {
@@ -41,12 +42,12 @@ func SendTxVent(
 	stakingCampaign solana.PrivateKey,
 	stakingFilePath string,
 ) (*bin.Decoder, []byte) {
-	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	wsClient, err := ws.Connect(context.TODO(), "wss://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	if err != nil {
-		panic(err)
+		log.Println("PANIC!!!", fmt.Errorf("unable to open WebSocket Client - %w", err))
 	}
-	defer wsClient.Close()
+
+	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 
 	recent, err := rpcClient.GetRecentBlockhash(context.TODO(), rpc.CommitmentFinalized)
 	if err != nil {
@@ -244,4 +245,3 @@ func GetTokenWallet(
 	}
 	return addr
 }
-

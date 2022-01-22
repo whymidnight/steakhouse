@@ -14,6 +14,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
+	"github.com/triptych-labs/anchor-escrow/v2/src/keys"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
 )
@@ -43,11 +44,14 @@ func ScheduleTransactionCallback(
 	log.Println("Smart Wallet:", event.SmartWallet)
 	log.Println("Derived:", derived)
 	time.Sleep(3 * time.Minute)
-	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
-	provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
-	if err != nil {
-		panic(err)
-	}
+	/*
+		providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
+		provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
+		if err != nil {
+			panic(err)
+		}
+	*/
+	provider := keys.GetProvider(0)
 	log.Println("Slept for 3 Minutes")
 	{
 		dst := solana.MustPublicKeyFromBase58("6fdRaWWxYC8oMAzrDGrmRSKjbNSA2MtabYyh5rymULni")
@@ -167,4 +171,3 @@ func SendTxVent(
 	log.Println(sig)
 	return nil, nil
 }
-

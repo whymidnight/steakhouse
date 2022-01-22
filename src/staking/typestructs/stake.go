@@ -32,8 +32,9 @@ type Stake struct {
 	StakingWallet Authority   `json:"StakingWallet"`
 	EntryTender   Authority   `json:"EntryTender"`
 	// RewardInterval describes in seconds, the frequency to recur rewarding participants during lifecycle
-	RewardInterval int64 `json:"RewardInterval"`
-	Reward         int64 `json:"Reward"`
+	RewardInterval int64     `json:"RewardInterval"`
+	Reward         int64     `json:"Reward"`
+	StakeAccount   Authority `json:"StakeAccount"`
 }
 
 const stakingPath = "stakes/"
@@ -252,6 +253,7 @@ func NewStake(
 		},
 		rewardInterval,
 		rewardPot,
+		Authority{},
 	}
 
 	fileName = fmt.Sprint(stakingPath, uid, ".json")
@@ -267,7 +269,7 @@ func NewStake(
 	return
 }
 
-func SetStakingWallet(stakeFile string, smartWalletDerived solana.PublicKey) {
+func SetStakingWallet(stakeFile string, stakingAccount solana.PublicKey) {
 	stake := new(Stake)
 	file, err := ioutil.ReadFile(stakeFile)
 	if err != nil {
@@ -277,9 +279,9 @@ func SetStakingWallet(stakeFile string, smartWalletDerived solana.PublicKey) {
 	if err != nil {
 		panic(err)
 	}
-	stake.StakingWallet = Authority{
-		Primitive: smartWalletDerived,
-		Base58:    smartWalletDerived.String(),
+	stake.StakeAccount = Authority{
+		Primitive: stakingAccount,
+		Base58:    stakingAccount.String(),
 	}
 	fBytes, err := json.MarshalIndent(stake, "", "  ")
 	if err != nil {

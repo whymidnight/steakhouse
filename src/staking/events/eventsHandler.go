@@ -79,7 +79,9 @@ func NewAdhocEventListener(adhocWg *sync.WaitGroup) {
 
 	sub, err := wsClient.LogsSubscribeMentions(smart_wallet.ProgramID, rpc.CommitmentConfirmed)
 	if err != nil {
-		panic(err)
+		log.Println(fmt.Errorf("ad hoc ws create panic: %w", err))
+		adhocWg.Done()
+		return
 	}
 
 	adhocWg.Add(1)
@@ -94,6 +96,8 @@ func NewAdhocEventListener(adhocWg *sync.WaitGroup) {
 			event, err := sub.Recv()
 			if err != nil {
 				log.Println(fmt.Errorf("ad hoc event recv panic: %w", err))
+				adhocWg.Done()
+				return
 			}
 			state = true
 			adhocWg.Add(1)
@@ -206,7 +210,7 @@ func loadCache(cachePath string) []*Subscription {
 		fileBytes := func() []byte {
 			fileBytes, err := ioutil.ReadFile(fmt.Sprint(cachePath, "/", files[i].Name()))
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("loadcache readfile panic: %w", err))
 			}
 			return fileBytes
 		}()
@@ -214,7 +218,9 @@ func loadCache(cachePath string) []*Subscription {
 		dec := json.NewDecoder(bytes.NewReader(fileBytes))
 		err := dec.Decode(&sub)
 		if err != nil {
-			log.Fatal(err)
+			// log.Println("loadcache decode panic: %w", err)
+			events[i] = nil
+			continue
 		}
 		events[i] = &sub
 	}
@@ -262,6 +268,9 @@ func (s *Subscriptions) ConsumeInThread(cachePath string) {
 			for eventIndex := range s.EventSubscriptions {
 				fmt.Println("Reloading indice:", eventIndex)
 				sub := s.EventSubscriptions[eventIndex]
+				if sub == nil {
+					continue
+				}
 				if !sub.IsScheduled {
 					s.buffer.Add(1)
 					go ProcessEvents(sub, &s.buffer)

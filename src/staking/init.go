@@ -114,26 +114,8 @@ func InitStakingCampaign(
 		)
 	}
 
-	/*
-		derived, derivedBump, e := utils.GetSmartWalletDerived(stakingCampaignSmartWallet, uint64(0))
-		if e != nil {
-			panic(e)
-		}
-		fmt.Println()
-		fmt.Println()
-		fmt.Println()
-		log.Println("wallet: ", stakingCampaignSmartWallet)
-		log.Println("derived: ", derived, derivedBump)
-		log.Println("private: ", stakingCampaign.PrivateKey)
-
-		for i := range []int{1, 2, 3} {
-			tx, txBump, e := utils.GetTransactionAddress(stakingCampaignSmartWallet, uint64(i))
-			if e != nil {
-				panic(e)
-			}
-			log.Println("i:", i, "tx: ", tx, txBump)
-		}
-	*/
+	stakingAccount := stakeCampaignIx.Accounts()[1].PublicKey
+	typestructs.SetStakingWallet(stakeFile, stakingAccount)
 }
 func CreateStakingCampaign(
 	OWNER solana.PrivateKey,
@@ -163,7 +145,7 @@ func CreateStakingCampaign(
 	if err != nil {
 		panic(nil)
 	}
-	duration := int64(60 * 5)
+	duration := int64(60 * 60)
 	stake, stakeFile, stakeCampaignIx := typestructs.NewStake(
 		OWNER,
 		"Pondering",
@@ -231,27 +213,8 @@ func CreateStakingCampaign(
 		)
 	}
 
-	/*
-		derived, derivedBump, e := utils.GetSmartWalletDerived(stakingCampaignSmartWallet, uint64(0))
-		if e != nil {
-			panic(e)
-		}
-		fmt.Println()
-		fmt.Println()
-		fmt.Println()
-		log.Println("wallet: ", stakingCampaignSmartWallet)
-		log.Println("derived: ", derived, derivedBump)
-		log.Println("private: ", stakingCampaign.PrivateKey)
-
-		for i := range []int{1, 2, 3} {
-			tx, txBump, e := utils.GetTransactionAddress(stakingCampaignSmartWallet, uint64(i))
-			if e != nil {
-				panic(e)
-			}
-			log.Println("i:", i, "tx: ", tx, txBump)
-		}
-	*/
-
+	stakingAccount := stakeCampaignIx.Accounts()[1].PublicKey
+	typestructs.SetStakingWallet(stakeFile, stakingAccount)
 	return
 }
 
@@ -509,3 +472,4 @@ func Subscribe(OWNER solana.PrivateKey, dontinme uint64) {
 
 	sub.CloseEventConsumption()
 }
+

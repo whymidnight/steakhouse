@@ -15,6 +15,7 @@ import (
 	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/triptych-labs/anchor-escrow/v2/src/keys"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/solanarpc"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
@@ -31,11 +32,15 @@ func DoRewards(
 	stake *typestructs.Stake,
 	derivedAta *solana.PublicKey,
 	recipient solana.PublicKey,
+	rollup smart_wallet.Rollup,
 ) int64 {
-	owner, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/stakingAuthority.key")
-	if err != nil {
-		panic(err)
-	}
+	/*
+		owner, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/stakingAuthority.key")
+		if err != nil {
+			panic(err)
+		}
+	*/
+	owner := keys.GetProvider(1)
 	participants, swIxs := MakeSwIxs(
 		0,
 		solanarpc.GetStakes,
@@ -47,14 +52,51 @@ func DoRewards(
 		provider,
 		func(lastActs map[string][]solanarpc.LastAct) map[string][]solanarpc.LastAct {
 			for owner, lastAct := range lastActs {
-				if owner == recipient.String() {
-					filter := make(map[string][]solanarpc.LastAct)
-					filter[owner] = lastAct
+				filter := make(map[string][]solanarpc.LastAct)
+				log.Println("la-la-la-la-la-la-la", recipient, owner)
+				for _, act := range lastAct {
+					addr, _, err := solana.FindProgramAddress(
+						[][]byte{
+							solana.SystemProgramID.Bytes(),
+							stakingCampaignSmartWallet.Bytes(),
+							act.Mint.Bytes(),
+						},
+						solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"),
+					)
+					if err != nil {
+						panic(err)
+					}
+					rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
+					opts := rpc.GetAccountInfoOpts{
+						Encoding: "jsonParsed",
+					}
+					meta, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), addr, &opts)
+					if meta != nil {
+						ticketDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
+						var ticketMeta smart_wallet.Ticket
+						ticketDecoder.Decode(&ticketMeta)
+						log.Println(ticketMeta)
+						if !ticketMeta.Owner.IsZero() {
+							if recipient.String() == ticketMeta.Owner.String() {
+								filter[ticketMeta.Owner.String()] = append(filter[ticketMeta.Owner.String()], solanarpc.LastAct{
+									Mint:       act.Mint,
+									OwnerOG:    recipient,
+									OwnerATA:   act.StakingATA,
+									StakingATA: act.StakingATA,
+									Signature:  act.Signature,
+									BlockTime:  act.BlockTime,
+								})
+							}
+						}
+					}
+				}
+				if len(filter[recipient.String()]) > 0 {
 					return filter
 				}
 			}
 			return lastActs
 		},
+		rollup,
 	)
 	log.Println(participants)
 
@@ -218,7 +260,7 @@ func DoRewards(
 				nftUpsertSx := smart_wallet.NewAppendTransactionInstructionBuilder().
 					SetBump(stakingCampaignTxAccountBump).
 					SetInstructions(instruction).
-					SetIndex(uint64(epochInd)).
+					SetIndex(uint64(0)).
 					SetOwnerAccount(owner.PublicKey()).
 					SetSmartWalletAccount(stakingCampaignSmartWallet).
 					SetTransactionAccount(stakingCampaignTxAccount).
@@ -289,6 +331,7 @@ func DoRewards(
 			SetSmartWalletAccount(stakingCampaignSmartWallet).
 			SetTransactionAccount(stakingCampaignTxAccount)
 
+		ix.AccountMetaSlice.Append(solana.NewAccountMeta(provider.PublicKey(), true, false))
 		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stakingCampaignSmartWalletDerived, true, false))
 		ix.AccountMetaSlice.Append(solana.NewAccountMeta(stake.EntryTender.Primitive, false, false))
 		for _, ata := range rewardAtas {
@@ -321,10 +364,13 @@ func WithdrawParticipantMint(
 	stakingCampaignSmartWalletDerivedBump uint8,
 	event *typestructs.WithdrawEntityEvent,
 ) {
-	owner, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/stakingAuthority.key")
-	if err != nil {
-		panic(err)
-	}
+	/*
+		owner, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/stakingAuthority.key")
+		if err != nil {
+			panic(err)
+		}
+	*/
+	owner := keys.GetProvider(1)
 	var stakeMeta smart_wallet.Stake
 	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	opts := rpc.GetAccountInfoOpts{
@@ -367,21 +413,26 @@ func RewardClaimsParticipant(
 	durationBuf := bytes.NewBuffer(event.Duration)
 	eb.Read(durationBuf, eb.LittleEndian, &duration)
 
-	var stakeMeta smart_wallet.Stake
 	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
 	opts := rpc.GetAccountInfoOpts{
 		Encoding: "jsonParsed",
 	}
+	var stakeMeta smart_wallet.Stake
 	meta, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), event.Stake, &opts)
 	stakeDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
 	stakeDecoder.Decode(&stakeMeta)
+
+	var rollupMeta smart_wallet.Rollup
+	meta, _ = rpcClient.GetAccountInfoWithOpts(context.TODO(), event.Rollup, &opts)
+	rollupDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
+	rollupDecoder.Decode(&rollupMeta)
+
 	stake := typestructs.ReadStakeFile(
 		fmt.Sprintf(
 			"./stakes/%s.json",
 			stakeMeta.Uuid,
 		),
 	)
-
 	ataIx := associatedtokenaccount.NewCreateInstructionBuilder().
 		SetMint(stake.EntryTender.Primitive).
 		SetPayer(provider.PublicKey()).
@@ -398,6 +449,7 @@ func RewardClaimsParticipant(
 		stake,
 		&derivedAta,
 		event.Owner,
+		rollupMeta,
 	)
 
 }
@@ -408,10 +460,13 @@ func ScheduleClaimEntitiesCallback(
 	j, _ := json.MarshalIndent(event, "", "  ")
 	log.Println(string(j))
 
-	provider, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key")
-	if err != nil {
-		panic(err)
-	}
+	/*
+		provider, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key")
+		if err != nil {
+			panic(err)
+		}
+	*/
+	provider := keys.GetProvider(0)
 	stakingCampaignSmartWalletDerived, stakingCampaignSmartWalletDerivedBump, err := getSmartWalletDerived(event.SmartWallet, uint64(0))
 	if err != nil {
 		panic(nil)
@@ -444,10 +499,13 @@ func ScheduleWithdrawCallback(
 	log.Println("Withdrawing....", event.Ticket, "from", event.SmartWallet)
 	j, _ := json.MarshalIndent(event, "", "  ")
 	log.Println(string(j))
-	provider, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key")
-	if err != nil {
-		panic(err)
-	}
+	/*
+		provider, err := solana.PrivateKeyFromSolanaKeygenFile("/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key")
+		if err != nil {
+			panic(err)
+		}
+	*/
+	provider := keys.GetProvider(0)
 	stakingCampaignSmartWalletDerived, stakingCampaignSmartWalletDerivedBump, err := getSmartWalletDerived(event.SmartWallet, uint64(0))
 	if err != nil {
 		panic(nil)

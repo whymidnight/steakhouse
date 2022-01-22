@@ -18,6 +18,7 @@ import (
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
+	"github.com/triptych-labs/anchor-escrow/v2/src/websocket"
 )
 
 func getStakeMetaAccount(
@@ -60,7 +61,7 @@ func getTokenWallet(
 }
 
 func getRollupAccount(
-	stakeWallet solana.PublicKey,
+	stakingSmartWallet solana.PublicKey,
 	owner solana.PublicKey,
 	gid uint16,
 ) (addr solana.PublicKey, bump uint8, err error) {
@@ -69,7 +70,7 @@ func getRollupAccount(
 
 	addr, bump, err = solana.FindProgramAddress(
 		[][]byte{
-			stakeWallet.Bytes(),
+			stakingSmartWallet.Bytes(),
 			owner.Bytes(),
 			absBytes,
 		},
@@ -100,6 +101,7 @@ func getParticipationAccount(
 }
 
 func init() {
+	websocket.SetupWSClient()
 	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"))
 }
 
@@ -132,6 +134,7 @@ func maiin() {
 		func(m map[string][]solanarpc.LastAct) map[string][]solanarpc.LastAct {
 			return m
 		},
+		smart_wallet.Rollup{},
 	)
 
 }
@@ -208,23 +211,17 @@ func main() {
 		provider.PublicKey(),
 	)
 
-	mints := []solana.PublicKey{
-		/*
-
-
-			solana.MustPublicKeyFromBase58("2wedvREVcJT68Ee9GbYWPDdPXniiMgMfk8deuS8RnSrv"),
-		*/
-		solana.MustPublicKeyFromBase58("1282v4BRhZSdr3JgzvmMSaNDyywmaeatX5JWp5BNu1n1"),
-	}
 	// Claim
 	func() {
 		var claimsWg sync.WaitGroup
-		for ind := range []int{2} {
+		for range []int{2} {
 			{
 				// mintAta := getTokenWallet(owner.PublicKey(), mints[ind])
-				mintAta := mints[ind]
-				log.Println("ind", owner.PublicKey(), mints[ind], mintAta)
-				participation, participationBump, err := getParticipationAccount(stakingCampaignSmartWallet, mintAta)
+				mintAta := solana.MustPublicKeyFromBase58("HZHkfXbnJXTvuSbbtARr3i34Bu4GUzR2HM1KBBdDKYfw")
+
+				mint := solana.MustPublicKeyFromBase58("7YAGGwvRcVqo5WB3fdRpxsbGPKLXWbxmnwcLQvj2QHFr")
+				log.Println("ind", owner.PublicKey(), mintAta)
+				participation, participationBump, err := getParticipationAccount(stakingCampaignSmartWallet, mint)
 				if err != nil {
 					panic(err)
 				}
@@ -243,7 +240,7 @@ func main() {
 					SetRollupAccount(rollup).
 					SetBump(participationBump).
 					SetPayerAccount(provider.PublicKey()).
-					SetMintAccount(mintAta).
+					SetMintAccount(mint).
 					SetOwnerAccount(owner.PublicKey()).
 					SetSmartWalletAccount(stakingCampaignSmartWallet).
 					SetSystemProgramAccount(solana.SystemProgramID).
@@ -260,63 +257,65 @@ func main() {
 					provider.PublicKey(),
 				)
 				// return
-				claimX := smart_wallet.NewClaimEntitiesInstructionBuilder().
-					SetBump(rollupBump).
-					SetOwnerAccount(owner.PublicKey()).
-					SetPayerAccount(provider.PublicKey()).
-					SetRollupAccount(rollup).
-					SetSmartWalletAccount(stakingCampaignSmartWallet).
-					SetStakeAccount(stakePDA).
-					SetSystemProgramAccount(solana.SystemProgramID)
+				for range []int{1, 2} {
+					claimX := smart_wallet.NewClaimEntitiesInstructionBuilder().
+						SetBump(rollupBump).
+						SetOwnerAccount(owner.PublicKey()).
+						SetPayerAccount(provider.PublicKey()).
+						SetRollupAccount(rollup).
+						SetSmartWalletAccount(stakingCampaignSmartWallet).
+						SetStakeAccount(stakePDA).
+						SetSystemProgramAccount(solana.SystemProgramID)
 
-				e = claimX.Validate()
-				if e != nil {
-					panic(e)
-				}
+					e = claimX.Validate()
+					if e != nil {
+						panic(e)
+					}
 
-				utils.SendTxVent(
-					"claim participant",
-					append(make([]solana.Instruction, 0), claimX.Build()),
-					"claimEntityEvent",
-					func(key solana.PublicKey) *solana.PrivateKey {
-						signers := append(make([]solana.PrivateKey, 0), provider, owner)
-						for _, candidate := range signers {
-							if candidate.PublicKey().Equals(key) {
-								return &candidate
+					utils.SendTxVent(
+						"claim participant",
+						append(make([]solana.Instruction, 0), claimX.Build()),
+						"claimEntityEvent",
+						func(key solana.PublicKey) *solana.PrivateKey {
+							signers := append(make([]solana.PrivateKey, 0), provider, owner)
+							for _, candidate := range signers {
+								if candidate.PublicKey().Equals(key) {
+									return &candidate
+								}
 							}
-						}
-						return nil
-					},
-					provider.PublicKey(),
-					events.AccountMeta{
-						DerivedPublicKey:   stakingCampaignSmartWallet.String(),
-						DerivedBump:        0,
-						TxAccountPublicKey: solana.SystemProgramID.String(),
-						TxAccountBump:      0,
-					},
-					solana.NewWallet().PrivateKey,
-					"",
-				)
-				time.Sleep(5 * time.Second)
+							return nil
+						},
+						provider.PublicKey(),
+						events.AccountMeta{
+							DerivedPublicKey:   stakingCampaignSmartWallet.String(),
+							DerivedBump:        0,
+							TxAccountPublicKey: solana.SystemProgramID.String(),
+							TxAccountBump:      0,
+						},
+						solana.NewWallet().PrivateKey,
+						"",
+					)
+					time.Sleep(15 * time.Second)
 
-				var ticket smart_wallet.Ticket
-				opts := rpc.GetAccountInfoOpts{
-					Encoding: "jsonParsed",
+					var ticket smart_wallet.Ticket
+					opts := rpc.GetAccountInfoOpts{
+						Encoding: "jsonParsed",
+					}
+					a, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), participation, &opts)
+					decoder := bin.NewBorshDecoder(a.Value.Data.GetBinary())
+					decoder.Decode(&ticket)
+
+					var enrollment int64
+					buf := bytes.NewBuffer(ticket.EnrollmentEpoch)
+					eb.Read(buf, eb.LittleEndian, &enrollment)
+					log.Println(enrollment)
+					time.Sleep(time.Second * 30)
 				}
-				a, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), participation, &opts)
-				decoder := bin.NewBorshDecoder(a.Value.Data.GetBinary())
-				decoder.Decode(&ticket)
-
-				var enrollment int64
-				buf := bytes.NewBuffer(ticket.EnrollmentEpoch)
-				eb.Read(buf, eb.LittleEndian, &enrollment)
-				log.Println(enrollment)
-				time.Sleep(time.Second * 30)
 
 				log.Println("Withdrawing........")
 				wx := smart_wallet.NewWithdrawEntityInstructionBuilder().
 					SetBump(participationBump).
-					SetMintAccount(mintAta).
+					SetMintAccount(mint).
 					SetOwnerAccount(owner.PublicKey()).
 					SetPayerAccount(provider.PublicKey()).
 					SetSmartWalletAccount(stakingCampaignSmartWallet).

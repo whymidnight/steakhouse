@@ -12,27 +12,34 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/triptych-labs/anchor-escrow/v2/src/keys"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
+	"github.com/triptych-labs/anchor-escrow/v2/src/websocket"
 )
 
 var Provider solana.PrivateKey
 var Operation string
 
 func init() {
+	/*
+		providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
+		Provider, err = solana.PrivateKeyFromSolanaKeygenFile(providerKey)
+		if err != nil {
+			panic(err)
+		}
+	*/
+	keys.SetupProviders()
+	websocket.SetupWSClient()
+	// defer websocket.Close()
+	Provider = keys.GetProvider(0)
+
 	rand.Seed(time.Now().UnixNano())
-	var err error
 	var recover bool
 	flag.StringVar(&Operation, "operation", "", "Operation")
 	flag.BoolVar(&recover, "recover", false, "Incur event processing from ./cache")
 	flag.Parse()
-
-	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
-	Provider, err = solana.PrivateKeyFromSolanaKeygenFile(providerKey)
-	if err != nil {
-		panic(err)
-	}
 
 	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"))
 
@@ -96,4 +103,3 @@ func SetupCloseHandler(dontmindme solana.PrivateKey, dontintme uint64) {
 		os.Exit(0)
 	}()
 }
-

@@ -12,13 +12,14 @@ import (
 
 // UpdateEntity is the `updateEntity` instruction.
 type UpdateEntity struct {
-	Bump *uint8
+	Bump      *uint8
+	Timestamp *[]byte
 
 	// [0] = [WRITE] smartWallet
 	//
-	// [1] = [WRITE] stake
+	// [1] = [WRITE] ticket
 	//
-	// [2] = [WRITE] ticket
+	// [2] = [WRITE] rollup
 	//
 	// [3] = [WRITE, SIGNER] payer
 	//
@@ -46,6 +47,12 @@ func (inst *UpdateEntity) SetBump(bump uint8) *UpdateEntity {
 	return inst
 }
 
+// SetTimestamp sets the "timestamp" parameter.
+func (inst *UpdateEntity) SetTimestamp(timestamp []byte) *UpdateEntity {
+	inst.Timestamp = &timestamp
+	return inst
+}
+
 // SetSmartWalletAccount sets the "smartWallet" account.
 func (inst *UpdateEntity) SetSmartWalletAccount(smartWallet ag_solanago.PublicKey) *UpdateEntity {
 	inst.AccountMetaSlice[0] = ag_solanago.Meta(smartWallet).WRITE()
@@ -57,25 +64,25 @@ func (inst *UpdateEntity) GetSmartWalletAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[0]
 }
 
-// SetStakeAccount sets the "stake" account.
-func (inst *UpdateEntity) SetStakeAccount(stake ag_solanago.PublicKey) *UpdateEntity {
-	inst.AccountMetaSlice[1] = ag_solanago.Meta(stake).WRITE()
-	return inst
-}
-
-// GetStakeAccount gets the "stake" account.
-func (inst *UpdateEntity) GetStakeAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[1]
-}
-
 // SetTicketAccount sets the "ticket" account.
 func (inst *UpdateEntity) SetTicketAccount(ticket ag_solanago.PublicKey) *UpdateEntity {
-	inst.AccountMetaSlice[2] = ag_solanago.Meta(ticket).WRITE()
+	inst.AccountMetaSlice[1] = ag_solanago.Meta(ticket).WRITE()
 	return inst
 }
 
 // GetTicketAccount gets the "ticket" account.
 func (inst *UpdateEntity) GetTicketAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[1]
+}
+
+// SetRollupAccount sets the "rollup" account.
+func (inst *UpdateEntity) SetRollupAccount(rollup ag_solanago.PublicKey) *UpdateEntity {
+	inst.AccountMetaSlice[2] = ag_solanago.Meta(rollup).WRITE()
+	return inst
+}
+
+// GetRollupAccount gets the "rollup" account.
+func (inst *UpdateEntity) GetRollupAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[2]
 }
 
@@ -157,6 +164,9 @@ func (inst *UpdateEntity) Validate() error {
 		if inst.Bump == nil {
 			return errors.New("Bump parameter is not set")
 		}
+		if inst.Timestamp == nil {
+			return errors.New("Timestamp parameter is not set")
+		}
 	}
 
 	// Check whether all (required) accounts are set:
@@ -165,10 +175,10 @@ func (inst *UpdateEntity) Validate() error {
 			return errors.New("accounts.SmartWallet is not set")
 		}
 		if inst.AccountMetaSlice[1] == nil {
-			return errors.New("accounts.Stake is not set")
+			return errors.New("accounts.Ticket is not set")
 		}
 		if inst.AccountMetaSlice[2] == nil {
-			return errors.New("accounts.Ticket is not set")
+			return errors.New("accounts.Rollup is not set")
 		}
 		if inst.AccountMetaSlice[3] == nil {
 			return errors.New("accounts.Payer is not set")
@@ -198,15 +208,16 @@ func (inst *UpdateEntity) EncodeToTree(parent ag_treeout.Branches) {
 				ParentFunc(func(instructionBranch ag_treeout.Branches) {
 
 					// Parameters of the instruction:
-					instructionBranch.Child("Params[len=1]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
-						paramsBranch.Child(ag_format.Param("Bump", *inst.Bump))
+					instructionBranch.Child("Params[len=2]").ParentFunc(func(paramsBranch ag_treeout.Branches) {
+						paramsBranch.Child(ag_format.Param("     Bump", *inst.Bump))
+						paramsBranch.Child(ag_format.Param("Timestamp", *inst.Timestamp))
 					})
 
 					// Accounts of the instruction:
 					instructionBranch.Child("Accounts[len=8]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("  smartWallet", inst.AccountMetaSlice[0]))
-						accountsBranch.Child(ag_format.Meta("        stake", inst.AccountMetaSlice[1]))
-						accountsBranch.Child(ag_format.Meta("       ticket", inst.AccountMetaSlice[2]))
+						accountsBranch.Child(ag_format.Meta("       ticket", inst.AccountMetaSlice[1]))
+						accountsBranch.Child(ag_format.Meta("       rollup", inst.AccountMetaSlice[2]))
 						accountsBranch.Child(ag_format.Meta("        payer", inst.AccountMetaSlice[3]))
 						accountsBranch.Child(ag_format.Meta("        owner", inst.AccountMetaSlice[4]))
 						accountsBranch.Child(ag_format.Meta("         mint", inst.AccountMetaSlice[5]))
@@ -223,11 +234,21 @@ func (obj UpdateEntity) MarshalWithEncoder(encoder *ag_binary.Encoder) (err erro
 	if err != nil {
 		return err
 	}
+	// Serialize `Timestamp` param:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 func (obj *UpdateEntity) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err error) {
 	// Deserialize `Bump`:
 	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return err
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
 	if err != nil {
 		return err
 	}
@@ -238,10 +259,11 @@ func (obj *UpdateEntity) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (err e
 func NewUpdateEntityInstruction(
 	// Parameters:
 	bump uint8,
+	timestamp []byte,
 	// Accounts:
 	smartWallet ag_solanago.PublicKey,
-	stake ag_solanago.PublicKey,
 	ticket ag_solanago.PublicKey,
+	rollup ag_solanago.PublicKey,
 	payer ag_solanago.PublicKey,
 	owner ag_solanago.PublicKey,
 	mint ag_solanago.PublicKey,
@@ -249,9 +271,10 @@ func NewUpdateEntityInstruction(
 	systemProgram ag_solanago.PublicKey) *UpdateEntity {
 	return NewUpdateEntityInstructionBuilder().
 		SetBump(bump).
+		SetTimestamp(timestamp).
 		SetSmartWalletAccount(smartWallet).
-		SetStakeAccount(stake).
 		SetTicketAccount(ticket).
+		SetRollupAccount(rollup).
 		SetPayerAccount(payer).
 		SetOwnerAccount(owner).
 		SetMintAccount(mint).

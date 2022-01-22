@@ -476,7 +476,7 @@ func GetStakes(smartWallet solana.PublicKey, candyMachines []solana.PublicKey, e
 
 	lastActs := make([]LastAct, 0)
 	log.Println()
-	log.Println()
+	log.Println(len(stakes))
 	log.Println()
 	log.Println()
 	log.Println()
@@ -491,8 +491,15 @@ func GetStakes(smartWallet solana.PublicKey, candyMachines []solana.PublicKey, e
 			       else omit from participation
 			*/
 			// log.Println(token.Account.Data.Parsed.Info.Mint)
+			for _, mint := range excl {
+				if mint.Equals(solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint)) {
+					log.Println("!!!!!! excl", solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint))
+					return false
+				}
+			}
 			metadataI, err := ResolveMintMeta(solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint))
 			if !err {
+				log.Println("!!!!!! metdataI", solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint))
 				return false
 			}
 			metadata := metadataI.(*typestructs.Metadata)
@@ -502,29 +509,21 @@ func GetStakes(smartWallet solana.PublicKey, candyMachines []solana.PublicKey, e
 					return
 				}
 			}
+			log.Println("!!!!!! not valid")
 			isValid = false
 			return
 		}() {
 			json := token.Account.Data.Parsed.Info
-			if func(part solana.PublicKey) bool {
-				for _, mint := range excl {
-					if mint.Equals(part) {
-						return false
-					}
-				}
-				return true
-			}(solana.MustPublicKeyFromBase58(json.Mint)) {
-				log.Println(json.Mint)
-				log.Println()
-				log.Println()
-				log.Println()
-				log.Println()
-				lastActs = append(
-					lastActs,
-					GetLastAct(stakingWallet, solana.MustPublicKeyFromBase58(json.Mint)),
-				)
-				log.Println("!!!", len(lastActs))
-			}
+			log.Println(json.Mint)
+			log.Println()
+			log.Println()
+			log.Println()
+			log.Println()
+			lastActs = append(
+				lastActs,
+				GetLastAct(stakingWallet, solana.MustPublicKeyFromBase58(json.Mint)),
+			)
+			log.Println("!!!", len(lastActs))
 
 			// UIAmount
 		}
