@@ -46,7 +46,11 @@ var (
 
 	Instruction_ClaimEntities = ag_binary.TypeID([8]byte{49, 64, 204, 122, 243, 46, 61, 49})
 
+	Instruction_UpdateEntityByOwner = ag_binary.TypeID([8]byte{16, 146, 64, 22, 5, 127, 62, 47})
+
 	Instruction_UpdateEntity = ag_binary.TypeID([8]byte{22, 25, 212, 236, 22, 130, 39, 73})
+
+	Instruction_WithdrawEntityByProgram = ag_binary.TypeID([8]byte{124, 137, 118, 100, 169, 243, 186, 117})
 
 	Instruction_WithdrawEntity = ag_binary.TypeID([8]byte{117, 141, 134, 141, 159, 65, 75, 13})
 
@@ -86,8 +90,12 @@ func InstructionIDToName(id ag_binary.TypeID) string {
 		return "RegisterEntity"
 	case Instruction_ClaimEntities:
 		return "ClaimEntities"
+	case Instruction_UpdateEntityByOwner:
+		return "UpdateEntityByOwner"
 	case Instruction_UpdateEntity:
 		return "UpdateEntity"
+	case Instruction_WithdrawEntityByProgram:
+		return "WithdrawEntityByProgram"
 	case Instruction_WithdrawEntity:
 		return "WithdrawEntity"
 	case Instruction_CreateTransactionWithTimelock:
@@ -152,7 +160,13 @@ var InstructionImplDef = ag_binary.NewVariantDefinition(
 			"claim_entities", (*ClaimEntities)(nil),
 		},
 		{
+			"update_entity_by_owner", (*UpdateEntityByOwner)(nil),
+		},
+		{
 			"update_entity", (*UpdateEntity)(nil),
+		},
+		{
+			"withdraw_entity_by_program", (*WithdrawEntityByProgram)(nil),
 		},
 		{
 			"withdraw_entity", (*WithdrawEntity)(nil),

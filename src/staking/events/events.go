@@ -29,6 +29,10 @@ var AdhocEvents = append(
 		EventName:       "ClaimEntityEvent",
 	},
 	AdhocEvent{
+		InstructionName: "WithdrawEntityByProgram",
+		EventName:       "WithdrawEntityEvent",
+	},
+	AdhocEvent{
 		InstructionName: "WithdrawEntity",
 		EventName:       "WithdrawEntityEvent",
 	},
@@ -38,6 +42,7 @@ var SupportEvents = append(
 	"TransactionCreateEvent",
 	"TransactionApproveEvent",
 	"WalletCreateEvent",
+	"CreateStakeEvent",
 )
 
 type EventCodex struct {
@@ -50,6 +55,8 @@ type EventCodex struct {
 
 func getEventLogs(subEventLogs []string, eventName string) []EventCodex {
 	eventLogs := make([]EventCodex, 0)
+	log.Println(eventName)
+
 	if strings.Contains(strings.Join(SupportEvents, ""), eventName) {
 		for _, logger := range subEventLogs {
 			if strings.Contains(logger, "Program log: ") {
@@ -176,6 +183,7 @@ func ProcessEvents(sub *Subscription, buffer *sync.WaitGroup) error {
 	/*
 	   Handle SUPPORTED_EVENTS
 	*/
+	log.Println(eventLogs)
 	switch sub.EventName {
 	case SupportEvents[0]: // TransactionCreateEvent
 		for _, logger := range eventLogs {
@@ -199,22 +207,19 @@ func ProcessEvents(sub *Subscription, buffer *sync.WaitGroup) error {
 				&event)
 			sub.SetProcessed(true)
 		}
-	case SupportEvents[2]: // WalletCreateEvent
-		/*
-		   Intented as scheduling the callback fn
-		*/
+	case SupportEvents[3]:
 		for _, logger := range eventLogs { // should always eventLogs == 1
-			event := typestructs.SmartWalletCreate{}
+			event := typestructs.CreateStakeEvent{}
 			err := event.UnmarshalWithDecoder(logger.Decoder, logger.Bytes)
 			if err != nil {
 				fmt.Println(err)
-				break
+				continue
 			}
 
 			// set isScheduled
 			buffer.Add(1)
 			sub.SetScheduled(true)
-			go ScheduleWalletCallback(
+			go ScheduleStakeCreationCallback(
 				solana.MustPrivateKeyFromBase58(sub.StakingAccountPrivateKey),
 				solana.MustPrivateKeyFromBase58(sub.AccountMeta.TxAccountPublicKey),
 				solana.MustPublicKeyFromBase58(sub.AccountMeta.DerivedPublicKey),
@@ -224,9 +229,6 @@ func ProcessEvents(sub *Subscription, buffer *sync.WaitGroup) error {
 				buffer,
 			)
 		}
-		/*
-			case SupportEvents[1]:
-		*/
 	}
 	buffer.Done()
 	return nil

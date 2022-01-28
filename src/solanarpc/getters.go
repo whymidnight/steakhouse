@@ -37,11 +37,6 @@ func getSmartWalletDerived(
 	return
 }
 
-func GetStake(stakingCampaignDerivedWallet solana.PublicKey) {
-	// rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
-
-}
-
 type tokenAccountMetaValue struct {
 	Account struct {
 		Data struct {
@@ -453,7 +448,35 @@ func GetStakesFromClaimEvent(stakingWallet solana.PublicKey, owners []solana.Pub
 	return ownerActs
 
 }
-func GetStakes(smartWallet solana.PublicKey, candyMachines []solana.PublicKey, excl []solana.PublicKey) map[string][]LastAct {
+func GetHuntersRewardSpread(
+	hunters map[string][]LastAct,
+	huntersLiqPool solana.PublicKey,
+	rewardMint solana.PublicKey,
+) (
+	reward float64,
+	numberOfHunters int64,
+) {
+	reward, numberOfHunters = 0, 0
+	for _, hunterStakes := range hunters {
+		for range hunterStakes {
+			numberOfHunters = numberOfHunters + 1
+		}
+	}
+
+	err, rewardMeta := Holder(huntersLiqPool, rewardMint)
+	if err != nil {
+		amount := rewardMeta.Account.Data.Parsed.Info.TokenAmount.UIAmount
+		reward = amount / float64(numberOfHunters)
+	}
+
+	return
+
+}
+func GetStakes(
+	smartWallet solana.PublicKey,
+	candyMachines []solana.PublicKey,
+	excl []solana.PublicKey,
+) map[string][]LastAct {
 	stakingWallet, _, err := getSmartWalletDerived(smartWallet, uint64(0))
 	if err != nil {
 		panic(nil)
@@ -519,10 +542,13 @@ func GetStakes(smartWallet solana.PublicKey, candyMachines []solana.PublicKey, e
 			log.Println()
 			log.Println()
 			log.Println()
-			lastActs = append(
-				lastActs,
-				GetLastAct(stakingWallet, solana.MustPublicKeyFromBase58(json.Mint)),
-			)
+			lastAct := GetLastAct(stakingWallet, solana.MustPublicKeyFromBase58(json.Mint))
+			if lastAct != nil {
+				lastActs = append(
+					lastActs,
+					*lastAct,
+				)
+			}
 			log.Println("!!!", len(lastActs))
 
 			// UIAmount
@@ -553,7 +579,7 @@ type LastAct struct {
 	BlockTime  int64
 }
 
-func Holder(stakeWallet, mint solana.PublicKey) *solana.PublicKey {
+func Holder(stakeWallet, mint solana.PublicKey) (*solana.PublicKey, *tokenAccountMetaValue) {
 	log.Println("---.......---", stakeWallet, mint)
 	url := "https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/"
 	method := "POST"
@@ -578,21 +604,21 @@ func Holder(stakeWallet, mint solana.PublicKey) *solana.PublicKey {
 
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		return nil, nil
 	}
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		return nil, nil
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		return nil, nil
 	}
 	var atas tokenAccountMeta
 	err = json.Unmarshal(body, &atas)
@@ -602,24 +628,24 @@ func Holder(stakeWallet, mint solana.PublicKey) *solana.PublicKey {
 
 	for _, ata := range atas.Result.Value {
 		if ata.Account.Data.Parsed.Info.Owner == stakeWallet.String() {
-			return solana.MustPublicKeyFromBase58(ata.Pubkey).ToPointer()
+			return solana.MustPublicKeyFromBase58(ata.Pubkey).ToPointer(), &ata
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
-func GetLastAct(stakeWallet, mint solana.PublicKey) LastAct {
-	stakingHolder := Holder(stakeWallet, mint)
+func GetLastAct(stakeWallet, mint solana.PublicKey) *LastAct {
+	stakingHolder, _ := Holder(stakeWallet, mint)
 	if stakingHolder == nil {
-		panic(stakingHolder)
+		return nil
 	}
 	log.Println(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", stakingHolder)
 	signature, blockTime := LastSig(*stakingHolder)
 	owner := GetLastInfo(signature)
 	log.Println(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", owner)
 
-	return LastAct{
+	return &LastAct{
 		Mint:       mint,
 		OwnerOG:    *owner,
 		StakingATA: *stakingHolder,

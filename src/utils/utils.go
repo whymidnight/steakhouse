@@ -81,7 +81,7 @@ func SendTxVent(
 	events.SubscribeTransactionToEventLoop(subscription)
 	// fmt.Println(eventName, subscription)
 
-	// tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
+	tx.EncodeTree(text.NewTreeEncoder(os.Stdout, doc))
 	_, err = sendAndConfirmTransaction.SendAndConfirmTransaction(
 		context.TODO(),
 		rpcClient,

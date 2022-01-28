@@ -44,13 +44,6 @@ func ScheduleTransactionCallback(
 	log.Println("Smart Wallet:", event.SmartWallet)
 	log.Println("Derived:", derived)
 	time.Sleep(3 * time.Minute)
-	/*
-		providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
-		provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
-		if err != nil {
-			panic(err)
-		}
-	*/
 	provider := keys.GetProvider(0)
 	log.Println("Slept for 3 Minutes")
 	{

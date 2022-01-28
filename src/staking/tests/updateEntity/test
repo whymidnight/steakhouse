@@ -1,0 +1,95 @@
+nstructions[len=1]                                                                                                                                                                                                                                                                                            [111/768]
+      └─ Program: SmartWallet DTFZbc7n4zyqLDsP9nXvqgmnuGM1HEiTjjj2UBRCSX3x                                                                                                                                                                                                                                                    
+         └─ Instruction: CreateStake                                                                                                                                                                                                                                                                                          
+            ├─ Params[len=3]                                                                                                                                                                                                                                                                                                 
+            │    ├─      Bump: (uint8) 255                                                                                                                                                                                                                                                                                    
+            │    ├─  AbsIndex: (uint64) 4263                                                                                                                                                                                                                                                                                  
+            │    └─ StakeData: (smart_wallet.StakeData) {                                                                                                                                                                                                                                                                     
+            │                   Duration: (int32) 108000,                                                                                                                                                                                                                                                                     
+            │                   GenesisEpoch: ([]uint8) (len=8 cap=8) {                                                                                                                                                                                                                                                       
+            │                    00000000  b7 5e e0 61 00 00 00 00                           |.^.a....|                                                                                                                                                                                                                       
+            │                   },                                                                                                                                                                                                                                                                                            
+            │                   Name: ([]uint8) (len=32 cap=32) {                                                                                                                                                                                                                                                             
+            │                    00000000  68 65 6c 6c 6f 20 66 72  65 6e 73 00 00 00 00 00  |hello frens.....|                                                                                                                                                                                                               
+            │                    00000010  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|                                                                                                                                                                                                               
+            │                   },                                                                                                                                                                                                                                                                                            
+            │                   RewardPot: (int64) 150,                                                                                                                                                                                                                                                                       
+            │                   ProtectedGids: ([]uint8) (len=2 cap=2) {                                                                                                                                                                                                                                                      
+            │                    00000000  01 08                                             |..|                                                                                                                                                                                                                             
+            │                   }                                                                                                                              
+            │                  }                                                                                                                               
+            └─ Accounts[len=5]                                                 
+               ├─   smartWallet: 7RF6Nxkyzp1ab3Ug27oKsKBib5G7o6cxmQLngk6Nn4XH [WRITE]                                             
+               ├─         stake: bBpKWrTmThvvhZFstqxv7v3JS7gvtE5yk3mnjkvA3PE [WRITE]                                                                           
+               ├─         payer: HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat [WRITE, SIGN]                                                                    
+               ├─         owner: 9CUVRmkKvnCpHGDmYX2d4PUNsSpqaJDcTobe83LkyFTg [SIGN]                                              
+               └─ systemProgram: 11111111111111111111111111111111 []                                                                                           
+(solana.Signature) (len=64 cap=64) SUA5oaQAWQCakX8bCeoBGJZcVVbephYspgEpmd1CnGTq6K4dfCVwKoLcsNxbqk49xX8ARbYQFDrLAPivXmYpzvu                                     
+   Register participant                                                        
+   ├─ Signatures[len=1]                                                                                                                                        
+   │    └─ 4qBQq4BZy1b9cEWtfEfiscU67G3MNPc6Y7Mcmz8kPXXnNtEMPwR8jiZi6pinSYPXCTTt5jokYJFShSEPnoMdThMC                                                            
+   ├─ Message                                                                  
+   │    ├─ RecentBlockhash: 7pMucGwPXa8nTrLJkTXCAdqn3xpiNLkN2w9AwEXVuot8                                                                                       
+   │    ├─ AccountKeys[len=5]                                                                                                                                  
+   │    │    ├─ HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat                                                                                                   
+   │    │    ├─ 7RF6Nxkyzp1ab3Ug27oKsKBib5G7o6cxmQLngk6Nn4XH                                                                                                   
+   │    │    ├─ 7DoZmjHqMbmB2UWXd4rzkZqrVfuqkNEA2ZBni3uQ6fK1                   
+   │    │    ├─ 11111111111111111111111111111111                               
+   │    │    └─ DTFZbc7n4zyqLDsP9nXvqgmnuGM1HEiTjjj2UBRCSX3x                                                                                                   
+   │    └─ Header                                                              
+   │       ├─ NumRequiredSignatures: 1                                                                                                                         
+   │       ├─ NumReadonlySignedAccounts: 0                                                                                                                     
+   │       └─ NumReadonlyUnsignedAccounts: 2                                                                                                                   
+   └─ Instructions[len=1]                                                                                                                                      
+      └─ Program: SmartWallet DTFZbc7n4zyqLDsP9nXvqgmnuGM1HEiTjjj2UBRCSX3x                                                                                     
+         └─ Instruction: RegisterEntity                                        
+            ├─ Params[len=3]                                                                                                                                   
+            │    ├─       Bump: (uint8) 255                                                                                                                    
+            │    ├─ TicketData: (smart_wallet.TicketData) {                                                                                                    
+            │    │               EnrollmentEpoch: ([]uint8) (len=8 cap=8) { 
+            │    │                00000000  b7 5e e0 61 00 00 00 00                           |.^.a....|                                                       
+            │    │               },                                                                                                                            
+            │    │               Gid: (uint8) 0                                
+            │    │              }                                              
+            │    └─       Mint: (solana.PublicKey) (len=32 cap=32) 9CUVRmkKvnCpHGDmYX2d4PUNsSpqaJDcTobe83LkyFTg                                                
+            └─ Accounts[len=5]                                                                                                                                 
+               ├─   smartWallet: 7RF6Nxkyzp1ab3Ug27oKsKBib5G7o6cxmQLngk6Nn4XH [WRITE]                                                                          
+               ├─        ticket: 7DoZmjHqMbmB2UWXd4rzkZqrVfuqkNEA2ZBni3uQ6fK1 [WRITE]                                                                          
+               ├─         payer: HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat [WRITE, SIGN]                                                                    
+               ├─         owner: HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat [WRITE, SIGN]                                                                    
+               └─ systemProgram: 11111111111111111111111111111111 []                                                                                           
+(solana.Signature) (len=64 cap=64) 4qBQq4BZy1b9cEWtfEfiscU67G3MNPc6Y7Mcmz8kPXXnNtEMPwR8jiZi6pinSYPXCTTt5jokYJFShSEPnoMdThMC        
+WithdrawEntityEvent {5paqiQTUNgHZpwZobfczXYna5eUA2PBFQinc6n41gEjWDvbdyhstNV1adrjLv1ub178fvp2rFRhEv5A2sGwLQ1DB {7RF6Nxkyzp1ab3Ug27oKsKBib5G7o6cxmQLngk6Nn4XH 0 11111111111111111111111111111111 0} SLKigYMGsbmECnYTYsb9XAjQ3pjANPzkevH14Yok3nrVshQUxhXaMRLuQPrZjFaPTAXYiciGsM2rzj6hK91R5CD WithdrawEntityEvent [] false false  
+0 }                                                                                                                                                            
+   Withdraw participant                                                                                                                                        
+   ├─ Signatures[len=1]                                                                                                                                        
+   │    └─ 5paqiQTUNgHZpwZobfczXYna5eUA2PBFQinc6n41gEjWDvbdyhstNV1adrjLv1ub178fvp2rFRhEv5A2sGwLQ1DB                                                            
+   ├─ Message                                                                                                                                                  
+   │    ├─ RecentBlockhash: BLqtRQW5qzLcHsbPejWARcjLktyuUWEkkmqzMWBehzEi       
+   │    ├─ AccountKeys[len=6]                                                                                                                                  
+   │    │    ├─ HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat                                                                                                   
+   │    │    ├─ 7RF6Nxkyzp1ab3Ug27oKsKBib5G7o6cxmQLngk6Nn4XH                                                                                                   
+   │    │    ├─ bBpKWrTmThvvhZFstqxv7v3JS7gvtE5yk3mnjkvA3PE
+   │    │    ├─ 7DoZmjHqMbmB2UWXd4rzkZqrVfuqkNEA2ZBni3uQ6fK1
+   │    │    ├─ 11111111111111111111111111111111
+   │    │    └─ DTFZbc7n4zyqLDsP9nXvqgmnuGM1HEiTjjj2UBRCSX3x
+   │    └─ Header                                                              
+   │       ├─ NumRequiredSignatures: 1                                         
+   │       ├─ NumReadonlySignedAccounts: 0
+   │       └─ NumReadonlyUnsignedAccounts: 2
+   └─ Instructions[len=1]                                                      
+      └─ Program: SmartWallet DTFZbc7n4zyqLDsP9nXvqgmnuGM1HEiTjjj2UBRCSX3x
+         └─ Instruction: WithdrawEntity                                        
+            ├─ Params[len=2]                                                   
+            │    ├─ Bump: (uint8) 255                                          
+            │    └─ Mint: (solana.PublicKey) (len=32 cap=32) 9CUVRmkKvnCpHGDmYX2d4PUNsSpqaJDcTobe83LkyFTg
+            └─ Accounts[len=6]                                                 
+               ├─   smartWallet: 7RF6Nxkyzp1ab3Ug27oKsKBib5G7o6cxmQLngk6Nn4XH [WRITE] 
+               ├─         stake: bBpKWrTmThvvhZFstqxv7v3JS7gvtE5yk3mnjkvA3PE [WRITE] 
+               ├─        ticket: 7DoZmjHqMbmB2UWXd4rzkZqrVfuqkNEA2ZBni3uQ6fK1 [WRITE] 
+               ├─         payer: HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat [WRITE, SIGN] 
+               ├─         owner: HjCurwHVhUjEm26RTj4pPujvnCY9He5RhX2QPPz4zZat [WRITE, SIGN] 
+               └─ systemProgram: 11111111111111111111111111111111 [] 
+(solana.Signature) (len=64 cap=64) 5paqiQTUNgHZpwZobfczXYna5eUA2PBFQinc6n41gEjWDvbdyhstNV1adrjLv1ub178fvp2rFRhEv5A2sGwLQ1DB
+2022/01/13 09:18:24 Sleeping for 5 seconds...
+2022/01/13 09:18:29 ["KeQYpU5a68gIAAAA0l7gYQAAAAD/AHnN961+Wl1JfBPA0nDL1KRA3WmjaRXZaOGUZGMwvupTAAAAAA==","base64"] 

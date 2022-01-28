@@ -23,7 +23,7 @@ type UpdateEntity struct {
 	//
 	// [3] = [WRITE, SIGNER] payer
 	//
-	// [4] = [SIGNER] owner
+	// [4] = [SIGNER] smartWalletOwner
 	//
 	// [5] = [] mint
 	//
@@ -97,14 +97,14 @@ func (inst *UpdateEntity) GetPayerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[3]
 }
 
-// SetOwnerAccount sets the "owner" account.
-func (inst *UpdateEntity) SetOwnerAccount(owner ag_solanago.PublicKey) *UpdateEntity {
-	inst.AccountMetaSlice[4] = ag_solanago.Meta(owner).SIGNER()
+// SetSmartWalletOwnerAccount sets the "smartWalletOwner" account.
+func (inst *UpdateEntity) SetSmartWalletOwnerAccount(smartWalletOwner ag_solanago.PublicKey) *UpdateEntity {
+	inst.AccountMetaSlice[4] = ag_solanago.Meta(smartWalletOwner).SIGNER()
 	return inst
 }
 
-// GetOwnerAccount gets the "owner" account.
-func (inst *UpdateEntity) GetOwnerAccount() *ag_solanago.AccountMeta {
+// GetSmartWalletOwnerAccount gets the "smartWalletOwner" account.
+func (inst *UpdateEntity) GetSmartWalletOwnerAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[4]
 }
 
@@ -184,7 +184,7 @@ func (inst *UpdateEntity) Validate() error {
 			return errors.New("accounts.Payer is not set")
 		}
 		if inst.AccountMetaSlice[4] == nil {
-			return errors.New("accounts.Owner is not set")
+			return errors.New("accounts.SmartWalletOwner is not set")
 		}
 		if inst.AccountMetaSlice[5] == nil {
 			return errors.New("accounts.Mint is not set")
@@ -215,14 +215,14 @@ func (inst *UpdateEntity) EncodeToTree(parent ag_treeout.Branches) {
 
 					// Accounts of the instruction:
 					instructionBranch.Child("Accounts[len=8]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
-						accountsBranch.Child(ag_format.Meta("  smartWallet", inst.AccountMetaSlice[0]))
-						accountsBranch.Child(ag_format.Meta("       ticket", inst.AccountMetaSlice[1]))
-						accountsBranch.Child(ag_format.Meta("       rollup", inst.AccountMetaSlice[2]))
-						accountsBranch.Child(ag_format.Meta("        payer", inst.AccountMetaSlice[3]))
-						accountsBranch.Child(ag_format.Meta("        owner", inst.AccountMetaSlice[4]))
-						accountsBranch.Child(ag_format.Meta("         mint", inst.AccountMetaSlice[5]))
-						accountsBranch.Child(ag_format.Meta(" tokenProgram", inst.AccountMetaSlice[6]))
-						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[7]))
+						accountsBranch.Child(ag_format.Meta("     smartWallet", inst.AccountMetaSlice[0]))
+						accountsBranch.Child(ag_format.Meta("          ticket", inst.AccountMetaSlice[1]))
+						accountsBranch.Child(ag_format.Meta("          rollup", inst.AccountMetaSlice[2]))
+						accountsBranch.Child(ag_format.Meta("           payer", inst.AccountMetaSlice[3]))
+						accountsBranch.Child(ag_format.Meta("smartWalletOwner", inst.AccountMetaSlice[4]))
+						accountsBranch.Child(ag_format.Meta("            mint", inst.AccountMetaSlice[5]))
+						accountsBranch.Child(ag_format.Meta("    tokenProgram", inst.AccountMetaSlice[6]))
+						accountsBranch.Child(ag_format.Meta("   systemProgram", inst.AccountMetaSlice[7]))
 					})
 				})
 		})
@@ -265,7 +265,7 @@ func NewUpdateEntityInstruction(
 	ticket ag_solanago.PublicKey,
 	rollup ag_solanago.PublicKey,
 	payer ag_solanago.PublicKey,
-	owner ag_solanago.PublicKey,
+	smartWalletOwner ag_solanago.PublicKey,
 	mint ag_solanago.PublicKey,
 	tokenProgram ag_solanago.PublicKey,
 	systemProgram ag_solanago.PublicKey) *UpdateEntity {
@@ -276,7 +276,7 @@ func NewUpdateEntityInstruction(
 		SetTicketAccount(ticket).
 		SetRollupAccount(rollup).
 		SetPayerAccount(payer).
-		SetOwnerAccount(owner).
+		SetSmartWalletOwnerAccount(smartWalletOwner).
 		SetMintAccount(mint).
 		SetTokenProgramAccount(tokenProgram).
 		SetSystemProgramAccount(systemProgram)

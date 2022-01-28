@@ -10,19 +10,19 @@ import (
 	"testing"
 )
 
-func TestEncodeDecode_ClaimEntity(t *testing.T) {
+func TestEncodeDecode_UpdateEntityByOwner(t *testing.T) {
 	fu := ag_gofuzz.New().NilChance(0)
 	for i := 0; i < 1; i++ {
-		t.Run("ClaimEntity"+strconv.Itoa(i), func(t *testing.T) {
+		t.Run("UpdateEntityByOwner"+strconv.Itoa(i), func(t *testing.T) {
 			{
-				params := new(ClaimEntity)
+				params := new(UpdateEntityByOwner)
 				fu.Fuzz(params)
 				params.AccountMetaSlice = nil
 				buf := new(bytes.Buffer)
 				err := encodeT(*params, buf)
 				ag_require.NoError(t, err)
 				//
-				got := new(ClaimEntity)
+				got := new(UpdateEntityByOwner)
 				err = decodeT(got, buf.Bytes())
 				got.AccountMetaSlice = nil
 				ag_require.NoError(t, err)

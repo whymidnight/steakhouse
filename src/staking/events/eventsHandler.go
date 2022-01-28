@@ -95,9 +95,7 @@ func NewAdhocEventListener(adhocWg *sync.WaitGroup) {
 			}
 			event, err := sub.Recv()
 			if err != nil {
-				log.Println(fmt.Errorf("ad hoc event recv panic: %w", err))
-				adhocWg.Done()
-				return
+				panic(fmt.Errorf("ad hoc event recv panic: %w", err))
 			}
 			state = true
 			adhocWg.Add(1)

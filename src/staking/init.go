@@ -16,47 +16,56 @@ import (
 	atok "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/programs/token"
+	"github.com/triptych-labs/anchor-escrow/v2/src/keys"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/events"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking/typestructs"
 	"github.com/triptych-labs/anchor-escrow/v2/src/utils"
 )
 
-var programAuthority = solana.MustPublicKeyFromBase58("Gh9SvLnFfZ7LVWv5tPdUK1RXRFphDfMLiUb2xKht8AMc")
+var programAuthority solana.PublicKey
+
+func init() {
+}
 
 func InitStakingCampaign(
 	OWNER solana.PrivateKey,
 	ind uint64,
 ) {
-	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
-	provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
-	if err != nil {
-		panic(err)
-	}
+	programAuthority = keys.GetProvider(1).PublicKey()
+	provider := keys.GetProvider(0)
 	releaseAuthority := solana.NewWallet()
-	candyMachines := []string{
-		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
-		"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+	candyMachines := [][]string{
+		{
+			"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+			"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+			"86mzhAEwikBmbioAGma2DiCGrG1FiBQpRUbX6jFS1Ta6",
+			"qRUqG3wdoWJa7sQCSXvZxzid49CMDHZcw2XT6R23DsN",
+		},
+		{
+			"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+			"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+		},
 	}
 	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
 
 	// create pubkey for staking campaign
 	stakingCampaign := solana.NewWallet()
-	// stakingCampaignPrivateKey := stakingCampaign.PrivateKey
 	stakingCampaignSmartWallet, stakingCampaignSmartWalletBump, err := utils.GetSmartWallet(stakingCampaign.PublicKey())
 	if err != nil {
 		panic(nil)
 	}
+	duration := int64(60 * 5)
 	_, stakeFile, stakeCampaignIx := typestructs.NewStake(
 		OWNER,
 		"Pondering",
 		"What is quack geese dont hurt me",
-		time.Now().UTC().Unix()+(60*3),
+		time.Now().UTC().Unix()+duration,
 		candyMachines,
-		stakingCampaign.PublicKey().String(),
+		stakingCampaignSmartWallet.String(),
 		entryTender,
-		60*1,
-		1,
+		(duration / 2),
+		2,
 		ind,
 	)
 	{
@@ -66,7 +75,7 @@ func InitStakingCampaign(
 			"Create Smart Wallet",
 			append(make([]solana.Instruction, 0), smart_wallet.NewCreateSmartWalletInstructionBuilder().
 				SetBump(stakingCampaignSmartWalletBump).
-				SetMaxOwners(4).
+				SetMaxOwners(5).
 				SetOwners(append(
 					make([]solana.PublicKey, 0),
 					OWNER.PublicKey(),
@@ -83,7 +92,7 @@ func InitStakingCampaign(
 				SetSystemProgramAccount(solana.SystemProgramID).
 				Build(),
 			),
-			"WalletCreateEvent",
+			"CreateStakeEvent",
 			func(key solana.PublicKey) *solana.PrivateKey {
 				signers := append(make([]solana.PrivateKey, 0), OWNER, stakingCampaign.PrivateKey, releaseAuthority.PrivateKey)
 				for _, candidate := range signers {
@@ -106,16 +115,34 @@ func InitStakingCampaign(
 	}
 
 	{
-		utils.SendTx(
-			"Propose Release Instruction",
+		utils.SendTxVent(
+			"Create Smart Wallet",
 			append(make([]solana.Instruction, 0), stakeCampaignIx),
-			append(make([]solana.PrivateKey, 0), OWNER),
+			"CreateStakeEvent",
+			func(key solana.PublicKey) *solana.PrivateKey {
+				signers := append(make([]solana.PrivateKey, 0), OWNER, stakingCampaign.PrivateKey, releaseAuthority.PrivateKey)
+				for _, candidate := range signers {
+					if candidate.PublicKey().Equals(key) {
+						return &candidate
+					}
+				}
+				return nil
+			},
 			OWNER.PublicKey(),
+			events.AccountMeta{
+				DerivedPublicKey:   stakingCampaignSmartWallet.String(),
+				DerivedBump:        stakingCampaignSmartWalletBump,
+				TxAccountPublicKey: releaseAuthority.PrivateKey.String(),
+				TxAccountBump:      0,
+			},
+			stakingCampaign.PrivateKey,
+			stakeFile,
 		)
 	}
 
 	stakingAccount := stakeCampaignIx.Accounts()[1].PublicKey
 	typestructs.SetStakingWallet(stakeFile, stakingAccount)
+	log.Println("ABS INDEX", ind)
 }
 func CreateStakingCampaign(
 	OWNER solana.PrivateKey,
@@ -125,16 +152,20 @@ func CreateStakingCampaign(
 	stakingCampaignPrivateKey solana.PrivateKey,
 	stakingCampaignSmartWallet solana.PublicKey,
 ) {
-	providerKey := "/Users/ddigiacomo/SOLANA_KEYS/devnet/sollet.key"
-	provider, err := solana.PrivateKeyFromSolanaKeygenFile(providerKey)
-	if err != nil {
-		panic(err)
-	}
+	programAuthority = keys.GetProvider(1).PublicKey()
+	provider := keys.GetProvider(0)
 	releaseAuthority := solana.NewWallet()
-	candyMachines := []string{
-		"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
-		"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
-		"86mzhAEwikBmbioAGma2DiCGrG1FiBQpRUbX6jFS1Ta6",
+	candyMachines := [][]string{
+		{
+			"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+			"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+			"86mzhAEwikBmbioAGma2DiCGrG1FiBQpRUbX6jFS1Ta6",
+			"qRUqG3wdoWJa7sQCSXvZxzid49CMDHZcw2XT6R23DsN",
+		},
+		{
+			"3q4QcmXfLPcKjsyVU2mvK93sxkGBY8qsfc3AFRNCWRmr",
+			"9Snq8CaT9UBnEeDnKQp231NrFbNrcpZcJoMXcSYAnKFz",
+		},
 	}
 	entryTender := "DHzkC3yhnbJwZQH7fSAtC4fUYdZGvbAM5mjtDFDhwenz"
 
@@ -145,7 +176,7 @@ func CreateStakingCampaign(
 	if err != nil {
 		panic(nil)
 	}
-	duration := int64(60 * 60)
+	duration := int64(60 * 5)
 	stake, stakeFile, stakeCampaignIx := typestructs.NewStake(
 		OWNER,
 		"Pondering",
@@ -182,7 +213,7 @@ func CreateStakingCampaign(
 				SetSystemProgramAccount(solana.SystemProgramID).
 				Build(),
 			),
-			"WalletCreateEvent",
+			"CreateStakeEvent",
 			func(key solana.PublicKey) *solana.PrivateKey {
 				signers := append(make([]solana.PrivateKey, 0), OWNER, stakingCampaign.PrivateKey, releaseAuthority.PrivateKey)
 				for _, candidate := range signers {
@@ -205,16 +236,34 @@ func CreateStakingCampaign(
 	}
 
 	{
-		utils.SendTx(
-			"Propose Release Instruction",
+		utils.SendTxVent(
+			"Create Smart Wallet",
 			append(make([]solana.Instruction, 0), stakeCampaignIx),
-			append(make([]solana.PrivateKey, 0), OWNER),
+			"CreateStakeEvent",
+			func(key solana.PublicKey) *solana.PrivateKey {
+				signers := append(make([]solana.PrivateKey, 0), OWNER, stakingCampaign.PrivateKey, releaseAuthority.PrivateKey)
+				for _, candidate := range signers {
+					if candidate.PublicKey().Equals(key) {
+						return &candidate
+					}
+				}
+				return nil
+			},
 			OWNER.PublicKey(),
+			events.AccountMeta{
+				DerivedPublicKey:   stakingCampaignSmartWallet.String(),
+				DerivedBump:        stakingCampaignSmartWalletBump,
+				TxAccountPublicKey: releaseAuthority.PrivateKey.String(),
+				TxAccountBump:      0,
+			},
+			stakingCampaign.PrivateKey,
+			stakeFile,
 		)
 	}
 
 	stakingAccount := stakeCampaignIx.Accounts()[1].PublicKey
 	typestructs.SetStakingWallet(stakeFile, stakingAccount)
+	log.Println("ABS INDEX", ind)
 	return
 }
 
@@ -472,4 +521,3 @@ func Subscribe(OWNER solana.PrivateKey, dontinme uint64) {
 
 	sub.CloseEventConsumption()
 }
-

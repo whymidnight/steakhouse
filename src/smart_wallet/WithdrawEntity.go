@@ -20,20 +20,22 @@ type WithdrawEntity struct {
 	//
 	// [2] = [WRITE] ticket
 	//
-	// [3] = [WRITE, SIGNER] payer
+	// [3] = [WRITE] rollup
 	//
-	// [4] = [SIGNER] owner
+	// [4] = [WRITE, SIGNER] payer
 	//
-	// [5] = [] mint
+	// [5] = [SIGNER] owner
 	//
-	// [6] = [] systemProgram
+	// [6] = [] mint
+	//
+	// [7] = [] systemProgram
 	ag_solanago.AccountMetaSlice `bin:"-" borsh_skip:"true"`
 }
 
 // NewWithdrawEntityInstructionBuilder creates a new `WithdrawEntity` instruction builder.
 func NewWithdrawEntityInstructionBuilder() *WithdrawEntity {
 	nd := &WithdrawEntity{
-		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 7),
+		AccountMetaSlice: make(ag_solanago.AccountMetaSlice, 8),
 	}
 	return nd
 }
@@ -77,48 +79,59 @@ func (inst *WithdrawEntity) GetTicketAccount() *ag_solanago.AccountMeta {
 	return inst.AccountMetaSlice[2]
 }
 
+// SetRollupAccount sets the "rollup" account.
+func (inst *WithdrawEntity) SetRollupAccount(rollup ag_solanago.PublicKey) *WithdrawEntity {
+	inst.AccountMetaSlice[3] = ag_solanago.Meta(rollup).WRITE()
+	return inst
+}
+
+// GetRollupAccount gets the "rollup" account.
+func (inst *WithdrawEntity) GetRollupAccount() *ag_solanago.AccountMeta {
+	return inst.AccountMetaSlice[3]
+}
+
 // SetPayerAccount sets the "payer" account.
 func (inst *WithdrawEntity) SetPayerAccount(payer ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[3] = ag_solanago.Meta(payer).WRITE().SIGNER()
+	inst.AccountMetaSlice[4] = ag_solanago.Meta(payer).WRITE().SIGNER()
 	return inst
 }
 
 // GetPayerAccount gets the "payer" account.
 func (inst *WithdrawEntity) GetPayerAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[3]
+	return inst.AccountMetaSlice[4]
 }
 
 // SetOwnerAccount sets the "owner" account.
 func (inst *WithdrawEntity) SetOwnerAccount(owner ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[4] = ag_solanago.Meta(owner).SIGNER()
+	inst.AccountMetaSlice[5] = ag_solanago.Meta(owner).SIGNER()
 	return inst
 }
 
 // GetOwnerAccount gets the "owner" account.
 func (inst *WithdrawEntity) GetOwnerAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[4]
+	return inst.AccountMetaSlice[5]
 }
 
 // SetMintAccount sets the "mint" account.
 func (inst *WithdrawEntity) SetMintAccount(mint ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[5] = ag_solanago.Meta(mint)
+	inst.AccountMetaSlice[6] = ag_solanago.Meta(mint)
 	return inst
 }
 
 // GetMintAccount gets the "mint" account.
 func (inst *WithdrawEntity) GetMintAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[5]
+	return inst.AccountMetaSlice[6]
 }
 
 // SetSystemProgramAccount sets the "systemProgram" account.
 func (inst *WithdrawEntity) SetSystemProgramAccount(systemProgram ag_solanago.PublicKey) *WithdrawEntity {
-	inst.AccountMetaSlice[6] = ag_solanago.Meta(systemProgram)
+	inst.AccountMetaSlice[7] = ag_solanago.Meta(systemProgram)
 	return inst
 }
 
 // GetSystemProgramAccount gets the "systemProgram" account.
 func (inst *WithdrawEntity) GetSystemProgramAccount() *ag_solanago.AccountMeta {
-	return inst.AccountMetaSlice[6]
+	return inst.AccountMetaSlice[7]
 }
 
 func (inst WithdrawEntity) Build() *Instruction {
@@ -158,15 +171,18 @@ func (inst *WithdrawEntity) Validate() error {
 			return errors.New("accounts.Ticket is not set")
 		}
 		if inst.AccountMetaSlice[3] == nil {
-			return errors.New("accounts.Payer is not set")
+			return errors.New("accounts.Rollup is not set")
 		}
 		if inst.AccountMetaSlice[4] == nil {
-			return errors.New("accounts.Owner is not set")
+			return errors.New("accounts.Payer is not set")
 		}
 		if inst.AccountMetaSlice[5] == nil {
-			return errors.New("accounts.Mint is not set")
+			return errors.New("accounts.Owner is not set")
 		}
 		if inst.AccountMetaSlice[6] == nil {
+			return errors.New("accounts.Mint is not set")
+		}
+		if inst.AccountMetaSlice[7] == nil {
 			return errors.New("accounts.SystemProgram is not set")
 		}
 	}
@@ -187,14 +203,15 @@ func (inst *WithdrawEntity) EncodeToTree(parent ag_treeout.Branches) {
 					})
 
 					// Accounts of the instruction:
-					instructionBranch.Child("Accounts[len=7]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
+					instructionBranch.Child("Accounts[len=8]").ParentFunc(func(accountsBranch ag_treeout.Branches) {
 						accountsBranch.Child(ag_format.Meta("  smartWallet", inst.AccountMetaSlice[0]))
 						accountsBranch.Child(ag_format.Meta("        stake", inst.AccountMetaSlice[1]))
 						accountsBranch.Child(ag_format.Meta("       ticket", inst.AccountMetaSlice[2]))
-						accountsBranch.Child(ag_format.Meta("        payer", inst.AccountMetaSlice[3]))
-						accountsBranch.Child(ag_format.Meta("        owner", inst.AccountMetaSlice[4]))
-						accountsBranch.Child(ag_format.Meta("         mint", inst.AccountMetaSlice[5]))
-						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[6]))
+						accountsBranch.Child(ag_format.Meta("       rollup", inst.AccountMetaSlice[3]))
+						accountsBranch.Child(ag_format.Meta("        payer", inst.AccountMetaSlice[4]))
+						accountsBranch.Child(ag_format.Meta("        owner", inst.AccountMetaSlice[5]))
+						accountsBranch.Child(ag_format.Meta("         mint", inst.AccountMetaSlice[6]))
+						accountsBranch.Child(ag_format.Meta("systemProgram", inst.AccountMetaSlice[7]))
 					})
 				})
 		})
@@ -225,6 +242,7 @@ func NewWithdrawEntityInstruction(
 	smartWallet ag_solanago.PublicKey,
 	stake ag_solanago.PublicKey,
 	ticket ag_solanago.PublicKey,
+	rollup ag_solanago.PublicKey,
 	payer ag_solanago.PublicKey,
 	owner ag_solanago.PublicKey,
 	mint ag_solanago.PublicKey,
@@ -234,6 +252,7 @@ func NewWithdrawEntityInstruction(
 		SetSmartWalletAccount(smartWallet).
 		SetStakeAccount(stake).
 		SetTicketAccount(ticket).
+		SetRollupAccount(rollup).
 		SetPayerAccount(payer).
 		SetOwnerAccount(owner).
 		SetMintAccount(mint).

@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/triptych-labs/anchor-escrow/v2/src/keys"
 	"github.com/triptych-labs/anchor-escrow/v2/src/smart_wallet"
 	"github.com/triptych-labs/anchor-escrow/v2/src/solanarpc"
 	"github.com/triptych-labs/anchor-escrow/v2/src/staking"
@@ -101,6 +102,7 @@ func getParticipationAccount(
 }
 
 func init() {
+	keys.SetupProviders()
 	websocket.SetupWSClient()
 	smart_wallet.SetProgramID(solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"))
 }
@@ -122,7 +124,7 @@ func maiin() {
 	}
 
 	derivedAta := solana.PublicKey{}
-	_, _ = events.MakeSwIxs(
+	_, _, _ = events.MakeSwIxs(
 		0,
 		solanarpc.GetStakes,
 		stakingCampaignSmartWalletDerived,
@@ -135,6 +137,7 @@ func maiin() {
 			return m
 		},
 		smart_wallet.Rollup{},
+		stakingCampaignSmartWalletDerived,
 	)
 
 }

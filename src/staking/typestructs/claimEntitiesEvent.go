@@ -12,6 +12,7 @@ type ClaimEntitiesEvent struct {
 	SmartWallet ag_solanago.PublicKey
 	Duration    []uint8
 	LastEpoch   []uint8
+	ResetEpoch  []uint8
 	Mints       uint32
 	Rollup      ag_solanago.PublicKey
 	Stake       ag_solanago.PublicKey
@@ -36,6 +37,11 @@ func (obj ClaimEntitiesEvent) MarshalWithEncoder(encoder *ag_binary.Encoder, eve
 	}
 	// Serialize `IsSigner` param:
 	err = encoder.Encode(obj.LastEpoch)
+	if err != nil {
+		return err
+	}
+	// Serialize `IsSigner` param:
+	err = encoder.Encode(obj.ResetEpoch)
 	if err != nil {
 		return err
 	}
@@ -85,6 +91,10 @@ func (obj *ClaimEntitiesEvent) UnmarshalWithDecoder(decoder *ag_binary.Decoder, 
 	}
 	// Deserialize `IsWritable`:
 	err = decoder.Decode(&obj.LastEpoch)
+	if err != nil {
+		return err
+	}
+	err = decoder.Decode(&obj.ResetEpoch)
 	if err != nil {
 		return err
 	}

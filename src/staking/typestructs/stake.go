@@ -25,12 +25,12 @@ type Authority struct {
 }
 
 type Stake struct {
-	Name          string      `json:"Name"`
-	Description   string      `json:"Description"`
-	EndDate       int64       `json:"EndDate"`
-	CandyMachines []Authority `json:"CandyMachines"`
-	StakingWallet Authority   `json:"StakingWallet"`
-	EntryTender   Authority   `json:"EntryTender"`
+	Name          string        `json:"Name"`
+	Description   string        `json:"Description"`
+	EndDate       int64         `json:"EndDate"`
+	CandyMachines [][]Authority `json:"CandyMachines"`
+	StakingWallet Authority     `json:"StakingWallet"`
+	EntryTender   Authority     `json:"EntryTender"`
 	// RewardInterval describes in seconds, the frequency to recur rewarding participants during lifecycle
 	RewardInterval int64     `json:"RewardInterval"`
 	Reward         int64     `json:"Reward"`
@@ -204,7 +204,7 @@ func NewStake(
 	name string,
 	description string,
 	endDate int64,
-	candyMachines []string,
+	candyMachines [][]string,
 	stakingWallet string,
 	entryTender string,
 	rewardInterval int64,
@@ -234,12 +234,18 @@ func NewStake(
 		name,
 		description,
 		endDate,
-		func() (candies []Authority) {
-			for i := range candyMachines {
-				candies = append(candies, Authority{
-					Primitive: solana.MustPublicKeyFromBase58(candyMachines[i]),
-					Base58:    candyMachines[i],
-				})
+		func() (candies [][]Authority) {
+			candies = make([][]Authority, len(candyMachines))
+			for gid := range candyMachines {
+				if len(candies[gid]) == 0 {
+					candies[gid] = make([]Authority, 0)
+				}
+				for i := range candyMachines[gid] {
+					candies[gid] = append(candies[gid], Authority{
+						Primitive: solana.MustPublicKeyFromBase58(candyMachines[gid][i]),
+						Base58:    candyMachines[gid][i],
+					})
+				}
 			}
 			return
 		}(),
