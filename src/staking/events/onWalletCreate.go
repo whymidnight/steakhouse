@@ -43,6 +43,7 @@ type epoch struct {
 	end       int
 	ixs       []smart_wallet.TXInstruction
 	pxs       []solana.Instruction
+	tertxs    []solana.Instruction
 	txAccount transactionAccount
 }
 
@@ -55,7 +56,7 @@ func calculatePreciseReward(reward float64, decimals int) uint64 {
 }
 func MakeSwIxs(
 	opCode int, // 0 - rewards, 1 - nft release
-	participants func(solana.PublicKey, []solana.PublicKey, []solana.PublicKey) map[string][]solanarpc.LastAct,
+	participants func(solana.PublicKey, []solana.PublicKey, []solana.PublicKey, uint64) map[string][]solanarpc.LastAct,
 	smartWalletDerived solana.PublicKey,
 	startDate int64,
 	endDate int64,
@@ -89,6 +90,7 @@ func MakeSwIxs(
 			make([]solana.PublicKey, 0),
 			stake.EntryTender.Primitive,
 		),
+		0,
 	)
 	log.Println("Filtering.....", parts)
 	parts = participantsFilter(parts)
@@ -237,7 +239,7 @@ func MakeSwIxs(
 						flock,
 						provider.PublicKey(),
 						smartWalletDerived,
-						rewardSum,
+						0,
 					)
 
 					provIxs = append(
@@ -426,11 +428,12 @@ func DoRelease(
 	stakingCampaignSmartWalletDerivedBump uint8,
 	stake *typestructs.Stake,
 	recipient *solana.PublicKey,
+	gid uint16,
 ) int64 {
-	participants, swIxs, _ := MakeSwIxs(
+	participants, swIxs, _, _, _ := MakeEntityIxs(
 		1,
 		solanarpc.GetStakes,
-		stakingCampaignSmartWalletDerived,
+		stakingCampaignSmartWallet,
 		0,
 		0,
 		stake,
@@ -465,7 +468,6 @@ func DoRelease(
 						if !ticketMeta.Owner.IsZero() {
 							if recipient != nil {
 								if recipient.String() == act.Mint.String() {
-									log.Println("llllllllllllllllllll")
 									filter[ticketMeta.Owner.String()] = append(filter[ticketMeta.Owner.String()], solanarpc.LastAct{
 										Mint:       act.Mint,
 										OwnerOG:    ticketMeta.Owner,
@@ -475,16 +477,6 @@ func DoRelease(
 										BlockTime:  act.BlockTime,
 									})
 								}
-							} else {
-								log.Println("aaaaaaaaaaaaaaaaaaaa", ticketMeta.Owner)
-								filter[ticketMeta.Owner.String()] = append(filter[ticketMeta.Owner.String()], solanarpc.LastAct{
-									Mint:       act.Mint,
-									OwnerOG:    ticketMeta.Owner,
-									OwnerATA:   act.StakingATA,
-									StakingATA: act.StakingATA,
-									Signature:  act.Signature,
-									BlockTime:  act.BlockTime,
-								})
 							}
 						}
 					}
@@ -495,13 +487,12 @@ func DoRelease(
 					}
 				}
 			}
-			if len(filter) > 0 {
-				return filter
-			}
-			return lastActs
+			return filter
 		},
-		smart_wallet.Rollup{},
+		smart_wallet.Rollup{Gid: gid},
 		solana.PublicKey{},
+		nil,
+		nil,
 	)
 	log.Println(participants)
 
@@ -755,7 +746,7 @@ func DoRelease(
 		}()
 
 		log.Println("Fetching Transaction PDA for Epoch:", epochInd, len(epochData.ixs))
-		stakingCampaignSmartWalletDerivedE, _, err := getSmartWalletDerived(stakingCampaignSmartWallet, uint64(0))
+		stakingCampaignSmartWalletDerivedE, _, err := getSmartWalletDerived(stakingCampaignSmartWallet, uint64(gid))
 		if err != nil {
 			panic(nil)
 		}
@@ -766,7 +757,7 @@ func DoRelease(
 
 		ix := smart_wallet.NewExecuteTransactionDerivedInstructionBuilder().
 			SetBump(stakingCampaignSmartWalletDerivedBump).
-			SetIndex(uint64(0)).
+			SetIndex(uint64(gid)).
 			SetOwnerAccount(provider.PublicKey()).
 			SetSmartWalletAccount(stakingCampaignSmartWallet).
 			SetTransactionAccount(stakingCampaignTxAccount)
@@ -802,7 +793,7 @@ func fundWalletWithRewardToken(
 	rewardMint solana.PublicKey,
 	tendFrom solana.PublicKey,
 	tendTo solana.PublicKey,
-	supplyAmount float64,
+	supplyAmount uint64,
 ) solana.Instruction {
 	provider = keys.GetProvider(0)
 	tendFromAta := getTokenWallet(
@@ -818,10 +809,10 @@ func fundWalletWithRewardToken(
 			"Creating Ix to fund Wallet with Reward Token",
 			tendTo,
 			tendToAta,
-			calculatePreciseReward(float64(supplyAmount), 9),
+			supplyAmount,
 		)
 		return token.NewTransferCheckedInstructionBuilder().
-			SetAmount(calculatePreciseReward(supplyAmount, 9)).
+			SetAmount(supplyAmount).
 			SetDecimals(9).
 			SetMintAccount(rewardMint).
 			SetDestinationAccount(tendToAta).
@@ -851,7 +842,7 @@ func ScheduleWalletCallback(
 	       }
 	   }
 	*/
-	stakingCampaignSmartWalletDerived, stakingCampaignSmartWalletDerivedBump, err := getSmartWalletDerived(event.SmartWallet, uint64(0))
+	stakingCampaignSmartWalletDerived, _, err := getSmartWalletDerived(event.SmartWallet, uint64(0))
 	if err != nil {
 		panic(nil)
 	}
@@ -913,15 +904,6 @@ func ScheduleWalletCallback(
 	log.Println()
 	log.Println()
 	log.Println()
-	DoRelease(
-		provider,
-		stakingCampaignPrivateKey,
-		stakingCampaignSmartWallet,
-		stakingCampaignSmartWalletDerived,
-		stakingCampaignSmartWalletDerivedBump,
-		stake,
-		nil,
-	)
 	/*
 		log.Println("Sleeping for 1 minute...")
 		time.Sleep(1 * time.Minute)
@@ -955,6 +937,11 @@ func getTransactionAddress(
 	base solana.PublicKey,
 	index uint64,
 ) (addr solana.PublicKey, bump uint8, actualIndex uint64, err error) {
+	rpcClient := rpc.New("https://sparkling-dark-shadow.solana-devnet.quiknode.pro/0e9964e4d70fe7f856e7d03bc7e41dc6a2b84452/")
+	opts := rpc.GetAccountInfoOpts{
+		Encoding: "jsonParsed",
+	}
+
 	buf := make([]byte, 8)
 	actualIndex = uint64(rand.Int())
 
@@ -970,7 +957,11 @@ func getTransactionAddress(
 	if err != nil {
 		panic(err)
 	}
-	return
+	meta, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), addr, &opts)
+	if meta == nil {
+		return
+	}
+	return getTransactionAddress(base, index)
 }
 
 func SendTx(

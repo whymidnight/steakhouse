@@ -26,7 +26,7 @@ import (
 
 func MakeEntityIxs(
 	opCode int, // 0 - rewards lp0, 1 - nft release, 2 - rewards lp1
-	participants func(solana.PublicKey, []solana.PublicKey, []solana.PublicKey) map[string][]solanarpc.LastAct,
+	participants func(solana.PublicKey, []solana.PublicKey, []solana.PublicKey, uint64) map[string][]solanarpc.LastAct,
 	smartWallet solana.PublicKey,
 	startDate int64,
 	endDate int64,
@@ -42,6 +42,7 @@ func MakeEntityIxs(
 	map[string][]solanarpc.LastAct,
 	[]smart_wallet.TXInstruction,
 	[]solana.Instruction,
+	[]solana.Instruction,
 	*solana.Instruction,
 ) {
 	smartWalletDerived, _, err := getSmartWalletDerived(smartWallet, 0)
@@ -52,6 +53,7 @@ func MakeEntityIxs(
 	indice := 0
 	swIxs := make([]smart_wallet.TXInstruction, 0)
 	provIxs := make([]solana.Instruction, 0)
+	tertiaryIxs := make([]solana.Instruction, 0)
 	var fundIx *solana.Instruction = nil
 	switch opCode {
 	case 0:
@@ -60,7 +62,7 @@ func MakeEntityIxs(
 				stake.StakingWallet.Primitive,
 				func() []solana.PublicKey {
 					candyMachines := make([]solana.PublicKey, 0)
-					for _, candyMachine := range stake.CandyMachines[rollup.Gid] {
+					for _, candyMachine := range stake.CandyMachines[0] {
 						candyMachines = append(
 							candyMachines,
 							candyMachine.Primitive,
@@ -72,6 +74,7 @@ func MakeEntityIxs(
 					make([]solana.PublicKey, 0),
 					stake.EntryTender.Primitive,
 				),
+				0,
 			)
 			log.Println("Filtering.....", parts)
 			parts = participantsFilter(parts)
@@ -81,11 +84,6 @@ func MakeEntityIxs(
 			}())
 			for owner, tokens := range parts {
 				log.Println("--- Owner:", owner)
-				ownerAtaIx := associatedtokenaccount.NewCreateInstructionBuilder().
-					SetMint(stake.EntryTender.Primitive).
-					SetPayer(provider.PublicKey()).
-					SetWallet(solana.MustPublicKeyFromBase58(owner)).Build()
-				ownerRewardAta := ownerAtaIx.Accounts()[1].PublicKey
 				rewardSum := float64(0)
 				for _, nft := range tokens {
 					switch rollup.Gid {
@@ -147,14 +145,15 @@ func MakeEntityIxs(
 								return float64(float64(*eventDuration)/float64(duration)) * float64(rewardPot)
 							}(ticketMeta.EnrollmentEpoch, rollup.Timestamp, stakeMeta.Duration, stakeMeta.RewardPot)
 
-							log.Println("Reward:", owner, ownerRewardAta, stake.EntryTender.Primitive, rwd, calculatePreciseReward(rwd, 9))
+							log.Println("Reward:", owner, stake.EntryTender.Primitive, rwd, calculatePreciseReward(rwd, 9))
+
 							rollupAccount, _, err := func() (addr solana.PublicKey, bump uint8, err error) {
 								buf := make([]byte, 2)
 								binary.LittleEndian.PutUint16(buf, 0)
 								addr, bump, err = solana.FindProgramAddress(
 									[][]byte{
-										stake.StakingWallet.Primitive.Bytes(),
-										nft.OwnerOG.Bytes(),
+										smartWallet.Bytes(),
+										ticketMeta.Owner.Bytes(),
 										buf,
 									},
 									solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"),
@@ -167,29 +166,28 @@ func MakeEntityIxs(
 							if err != nil {
 								panic(err)
 							}
-							ticketAccount, ticketAccountBump, err := func() (addr solana.PublicKey, bump uint8, err error) {
-								addr, bump, err = solana.FindProgramAddress(
-									[][]byte{
-										solana.SystemProgramID.Bytes(),
-										stake.StakingWallet.Primitive.Bytes(),
-										nft.Mint.Bytes(),
-									},
-									solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"),
-								)
+							var rollupMeta smart_wallet.Rollup
+							log.Println("mmmmmmmmmmmmmmmmmmmmmmmmm", rollupAccount)
+							rollupInfo, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), rollupAccount, &opts)
+							if rollupInfo != nil {
+								ticketAccount, ticketAccountBump, err := func() (addr solana.PublicKey, bump uint8, err error) {
+									addr, bump, err = solana.FindProgramAddress(
+										[][]byte{
+											solana.SystemProgramID.Bytes(),
+											smartWallet.Bytes(),
+											ticketMeta.Mint.Bytes(),
+										},
+										solana.MustPublicKeyFromBase58("BDmweiovSpCLySvAXckZKW6vSBisNzVZDDS9wuuSGfQU"),
+									)
+									if err != nil {
+										panic(err)
+									}
+									return
+								}()
 								if err != nil {
 									panic(err)
 								}
-								return
-							}()
-							if err != nil {
-								panic(err)
-							}
-
-							var rollupMeta smart_wallet.Rollup
-							log.Println("mmmmmmmmmmmmmmmmmmmmmmmmm", rollupAccount, ticketAccount)
-							meta, _ = rpcClient.GetAccountInfoWithOpts(context.TODO(), rollupAccount, &opts)
-							if meta != nil {
-								rollupDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
+								rollupDecoder := bin.NewBorshDecoder(rollupInfo.Value.Data.GetBinary())
 								rollupDecoder.Decode(&rollupMeta)
 								log.Println("mmmmmmmmmmmmmmmmmmmmmmmmm", rollupMeta.Timestamp, rollup.Timestamp)
 								var d solana.Instruction = smart_wallet.NewUpdateEntityInstructionBuilder().
@@ -206,8 +204,8 @@ func MakeEntityIxs(
 									Build()
 
 								provIxs = append(provIxs, d)
-								log.Println("------REWARD FN -----", string(ticketMeta.EnrollmentEpoch), string(rollup.Timestamp), stakeMeta.Duration, stakeMeta.RewardPot, len(provIxs))
 								rewardSum = rewardSum + rwd
+								log.Println("------REWARD FN -----", rewardSum)
 							}
 
 							remaining, skim := rewardSum*.8, rewardSum*.2
@@ -215,8 +213,23 @@ func MakeEntityIxs(
 								switch gid {
 								case 0:
 									{
+										preciseReward := calculatePreciseReward(rewardSum, 9)
+										fIx := fundWalletWithRewardToken(
+											provider,
+											flock,
+											provider.PublicKey(),
+											smartWalletDerived,
+											preciseReward,
+										)
+										tertiaryIxs = append(tertiaryIxs, fIx)
+
+										ownerAtaIx := associatedtokenaccount.NewCreateInstructionBuilder().
+											SetMint(stake.EntryTender.Primitive).
+											SetPayer(provider.PublicKey()).
+											SetWallet(ticketMeta.Owner).Build()
+										ownerRewardAta := ownerAtaIx.Accounts()[1].PublicKey
 										d := token.NewTransferCheckedInstructionBuilder().
-											SetAmount(calculatePreciseReward(reward, 9)).
+											SetAmount(preciseReward).
 											SetDecimals(9).
 											SetMintAccount(stake.EntryTender.Primitive).
 											SetDestinationAccount(ownerRewardAta).
@@ -303,15 +316,7 @@ func MakeEntityIxs(
 									}
 								}
 							}
-							fIx := fundWalletWithRewardToken(
-								provider,
-								flock,
-								provider.PublicKey(),
-								smartWalletDerived,
-								rewardSum,
-							)
 
-							fundIx = &fIx
 						}
 
 					}
@@ -327,6 +332,10 @@ func MakeEntityIxs(
 				stake.StakingWallet.Primitive,
 				func() []solana.PublicKey {
 					candyMachines := make([]solana.PublicKey, 0)
+					if rollup.Gid > uint16(len(stake.CandyMachines)) {
+						log.Println("Wrong GID - expected 0-1 - got", rollup.Gid)
+						return candyMachines
+					}
 					for _, candyMachine := range stake.CandyMachines[rollup.Gid] {
 						candyMachines = append(
 							candyMachines,
@@ -339,6 +348,7 @@ func MakeEntityIxs(
 					make([]solana.PublicKey, 0),
 					stake.EntryTender.Primitive,
 				),
+				uint64(rollup.Gid),
 			)
 			log.Println("Filtering.....", parts)
 			parts = participantsFilter(parts)
@@ -372,15 +382,33 @@ func MakeEntityIxs(
 						                        )
 					*/
 
+					liqPool, _, err := getSmartWalletDerived(smartWallet, uint64(rollup.Gid))
+					if err != nil {
+						panic(err)
+					}
 					d := token.NewSetAuthorityInstructionBuilder().
-						SetAuthorityAccount(smartWalletDerived).
+						SetAuthorityAccount(liqPool).
 						SetAuthorityType(token.AuthorityAccountOwner).
 						SetNewAuthority(nft.OwnerOG).
 						SetSubjectAccount(nft.StakingATA)
 
 					accs := d.Build().Accounts()
-					_ = d.Accounts.SetAccounts(accs)
 
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(nft.OwnerOG, accs)
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
+					log.Println(".................--------------")
 					ix := smart_wallet.TXInstruction{
 						ProgramId: d.Build().ProgramID(),
 						Keys: func() []smart_wallet.TXAccountMeta {
@@ -405,7 +433,6 @@ func MakeEntityIxs(
 							return data
 						}(),
 					}
-					ixs = append(ixs, ix)
 					indice = indice + 1
 
 					{
@@ -453,23 +480,26 @@ func MakeEntityIxs(
 							Encoding: "jsonParsed",
 						}
 						meta, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), rollupPDA, &opts)
-						rollupDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
-						rollupDecoder.Decode(&rollupMeta)
-						log.Println("mmmmmmmmmmmmmmmmmmmmmmmmm", rollupMeta.Timestamp)
-						var d solana.Instruction = smart_wallet.NewUpdateEntityInstructionBuilder().
-							SetTimestamp(rollupMeta.Timestamp).
-							SetBump(ticketAccountBump).
-							SetSmartWalletAccount(stake.StakingWallet.Primitive).
-							SetTicketAccount(ticketAccount).
-							SetRollupAccount(rollupPDA).
-							SetPayerAccount(provider.PublicKey()).
-							SetSmartWalletOwnerAccount(provider.PublicKey()).
-							SetMintAccount(nft.Mint).
-							SetTokenProgramAccount(solana.TokenProgramID).
-							SetSystemProgramAccount(solana.SystemProgramID).
-							Build()
+						if meta != nil {
+							rollupDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
+							rollupDecoder.Decode(&rollupMeta)
+							log.Println("mmmmmmmmmmmmmmmmmmmmmmmmm", rollupMeta.Timestamp)
+							var d solana.Instruction = smart_wallet.NewUpdateEntityInstructionBuilder().
+								SetTimestamp(rollupMeta.Timestamp).
+								SetBump(ticketAccountBump).
+								SetSmartWalletAccount(stake.StakingWallet.Primitive).
+								SetTicketAccount(ticketAccount).
+								SetRollupAccount(rollupPDA).
+								SetPayerAccount(provider.PublicKey()).
+								SetSmartWalletOwnerAccount(provider.PublicKey()).
+								SetMintAccount(nft.Mint).
+								SetTokenProgramAccount(solana.TokenProgramID).
+								SetSystemProgramAccount(solana.SystemProgramID).
+								Build()
 
-						provIxs = append(provIxs, d)
+							ixs = append(ixs, ix)
+							provIxs = append(provIxs, d)
+						}
 					}
 				}
 				swIxs = append(swIxs, ixs...)
@@ -482,7 +512,7 @@ func MakeEntityIxs(
 				stake.StakingWallet.Primitive,
 				func() []solana.PublicKey {
 					candyMachines := make([]solana.PublicKey, 0)
-					for _, candyMachine := range stake.CandyMachines[rollup.Gid] {
+					for _, candyMachine := range stake.CandyMachines[1] {
 						candyMachines = append(
 							candyMachines,
 							candyMachine.Primitive,
@@ -494,6 +524,7 @@ func MakeEntityIxs(
 					make([]solana.PublicKey, 0),
 					stake.EntryTender.Primitive,
 				),
+				1,
 			)
 			log.Println("Filtering.....", parts)
 			parts = participantsFilter(parts)
@@ -682,7 +713,7 @@ func MakeEntityIxs(
 			}
 		}
 	}
-	return parts, swIxs, provIxs, fundIx
+	return parts, swIxs, provIxs, tertiaryIxs, fundIx
 
 }
 
@@ -698,7 +729,7 @@ func DoEntityRelease(
 	opts := rpc.GetAccountInfoOpts{
 		Encoding: "jsonParsed",
 	}
-	participants, _, _, _ := MakeEntityIxs(
+	participants, _, _, _, _ := MakeEntityIxs(
 		1,
 		solanarpc.GetStakes,
 		stakingCampaignSmartWallet,
@@ -747,7 +778,7 @@ func DoEntityRelease(
 			}
 			return lastActs
 		},
-		smart_wallet.Rollup{},
+		smart_wallet.Rollup{Gid: uint16(gid)},
 		solana.PublicKey{},
 		nil,
 		nil,
@@ -907,44 +938,43 @@ func ScheduleStakeCreationCallback(
 
 		now := time.Now().UTC().Unix()
 		duration := endDate - now
-		log.Println("Now:", now, "End Date:", stake.EndDate, "Duration:", duration)
 
 		time.Sleep(time.Duration(duration) * time.Second)
 		EVERY := int64(24 * 60 * 60)
-		_ = EVERY
 
 		/*
 		   Needs logic like like determining the earliest epoch times
 		   to allow execution of the recurring reward fn
 		*/
-		epochs := 0
+		epochs := 1
 		if duration > EVERY {
-			epochs = int(math.Ceil(float64(duration) / float64(EVERY)))
+			epochs = epochs + int(math.Ceil(float64(duration)/float64(EVERY)))
 		}
+		log.Println("Now:", now, "End Date:", stake.EndDate, "Duration:", duration)
+		log.Println(epochs)
 		for i := range make([]int, epochs) {
-			if i == epochs-1 {
-				break
-			}
 			start := EVERY * int64(i)
 			if t := time.Now().UTC().Unix(); t > startTime+start {
-				continue
-			} else {
-				delta := (startTime + start) - t
-				log.Println(delta, "whiskeytangofoxtrot")
-				// time.Sleep(time.Duration(delta) * time.Second)
-				// do rewards for hunters
+				sleepyTime := (startTime + start) - t
+				log.Println("Sleeping for", sleepyTime, "seconds to await next reward cycle")
+				time.Sleep(time.Duration(sleepyTime+5) * time.Second)
 			}
+			log.Println("whiskeytangofoxtrot")
+			// time.Sleep(time.Duration(delta) * time.Second)
+			// do rewards for hunters
+			/*
+				DoEntityReward(
+					provider,
+					stakingCampaignPrivateKey,
+					stakingCampaignSmartWallet,
+					stake,
+					event.Stake,
+					1,
+				)
+			*/
 		}
 
 	}
-	DoEntityReward(
-		provider,
-		stakingCampaignPrivateKey,
-		stakingCampaignSmartWallet,
-		stake,
-		event.Stake,
-		1,
-	)
 	log.Println()
 	log.Println()
 	log.Println()
@@ -959,14 +989,19 @@ func ScheduleStakeCreationCallback(
 		ducksLiqPoolBump,
 		stake
 		/*
-			DoEntityRelease(
-				provider,
-				stakingCampaignPrivateKey,
-				stakingCampaignSmartWallet,
-				stake,
-				event.Stake,
-				0,
-			)
+			for i := range []int{1, 2} {
+				if i == 0 {
+					continue
+				}
+				DoEntityRelease(
+					provider,
+					stakingCampaignPrivateKey,
+					stakingCampaignSmartWallet,
+					stake,
+					event.Stake,
+					uint64(i),
+				)
+			}
 		*/
 	log.Println("End of Staking Campaign...")
 

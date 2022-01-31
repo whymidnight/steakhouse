@@ -476,8 +476,9 @@ func GetStakes(
 	smartWallet solana.PublicKey,
 	candyMachines []solana.PublicKey,
 	excl []solana.PublicKey,
+	gid uint64,
 ) map[string][]LastAct {
-	stakingWallet, _, err := getSmartWalletDerived(smartWallet, uint64(0))
+	stakingWallet, _, err := getSmartWalletDerived(smartWallet, gid)
 	if err != nil {
 		panic(nil)
 	}
@@ -516,7 +517,7 @@ func GetStakes(
 			// log.Println(token.Account.Data.Parsed.Info.Mint)
 			for _, mint := range excl {
 				if mint.Equals(solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint)) {
-					log.Println("!!!!!! excl", solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint))
+					log.Println("!!!!!! excl", solana.MustPublicKeyFromBase58(token.Account.Data.Parsed.Info.Mint), stakingWallet)
 					return false
 				}
 			}
@@ -526,13 +527,14 @@ func GetStakes(
 				return false
 			}
 			metadata := metadataI.(*typestructs.Metadata)
+			log.Println(metadata.UpdateAuthority)
 			for _, candyMachine := range candyMachines {
 				if metadata.UpdateAuthority.Equals(candyMachine) {
 					isValid = true
 					return
 				}
 			}
-			log.Println("!!!!!! not valid")
+			//log.Println("!!!!!! not valid")
 			isValid = false
 			return
 		}() {
