@@ -509,11 +509,8 @@ func DoRewards(
 
 	var createWg sync.WaitGroup
 	for epochInd, epochData := range epochs {
-		if epochInd%offset == 0 {
-			createWg.Wait()
-		}
 		createWg.Add(1)
-		go func(wg *sync.WaitGroup, index int) {
+		func(wg *sync.WaitGroup, index int) {
 			blankIx := token.NewTransferCheckedInstructionBuilder().
 				SetAmount(1).
 				SetDestinationAccount(solana.SystemProgramID).
@@ -622,6 +619,9 @@ func DoRewards(
 		log.Println("Appending Transaction PDA - Tx address:", stakingCampaignTxAccount)
 
 		ixs := make([]solana.Instruction, 0)
+		ixs = append(ixs,
+			tertiaryIxs[epochInd],
+		)
 		for ixIndex, ix := range epochData.ixs {
 			appenditions := make([]solana.Instruction, 0)
 			log.Println("asdf.......asdf.........asdf.......asdf.........", ixIndex, len(tertiaryIxs), tertiaryIxs)
@@ -651,15 +651,16 @@ func DoRewards(
 
 			// 2/2 = 1 % 2 == 0
 			// 3/2 = 1 % 2 == 1
-			appenditions = append(appenditions,
-				tertiaryIxs[epochInd],
-			)
-			appenditions = append(appenditions,
-				provIxs[epochInd],
-			)
+			if rollup.Gid == 0 {
+				appenditions = append(appenditions,
+					provIxs[epochInd],
+				)
+			}
+			if rollup.Gid == 1 {
+				epochs[epochInd].pxs = provIxs[epochInd:epochInd]
+			}
 			log.Println("c0", epochInd, len(tertiaryIxs))
 			log.Println("c0", epochInd, tertiaryIxs[epochInd:epochInd+1])
-			// epochs[epochInd].pxs = provIxs[epochInd:epochInd]
 			nftUpsertSx := smart_wallet.NewAppendTransactionInstructionBuilder().
 				SetBump(stakingCampaignTxAccountBump).
 				SetInstructions(ix).
@@ -737,6 +738,15 @@ func WithdrawParticipantMint(
 		Encoding: "jsonParsed",
 	}
 	meta, _ := rpcClient.GetAccountInfoWithOpts(context.TODO(), event.Stake, &opts)
+	if meta == nil {
+		return
+	}
+	if meta.Value == nil {
+		return
+	}
+	if meta.Value.Data == nil {
+		return
+	}
 	stakeDecoder := bin.NewBorshDecoder(meta.Value.Data.GetBinary())
 	stakeDecoder.Decode(&stakeMeta)
 	stake := typestructs.ReadStakeFile(

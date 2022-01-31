@@ -1020,6 +1020,7 @@ func SendTx(
 		log.Println("PANIC!!!", fmt.Errorf("unable to send transaction - %w", err))
 		return
 	}
+	wsClient.Close()
 	log.Println(doc, "---", sig)
 }
 func getTokenWallet(

@@ -229,7 +229,7 @@ func MakeEntityIxs(
 											SetWallet(ticketMeta.Owner).Build()
 										ownerRewardAta := ownerAtaIx.Accounts()[1].PublicKey
 										d := token.NewTransferCheckedInstructionBuilder().
-											SetAmount(preciseReward).
+											SetAmount(calculatePreciseReward(reward, 9)).
 											SetDecimals(9).
 											SetMintAccount(stake.EntryTender.Primitive).
 											SetDestinationAccount(ownerRewardAta).
@@ -549,7 +549,7 @@ func MakeEntityIxs(
 				log.Println()
 				log.Println()
 				log.Println()
-				if hunterReward == 0 {
+				if hunterReward <= 0.01 {
 					break
 				}
 				for owner, tokens := range parts {
@@ -840,6 +840,7 @@ func DoEntityRelease(
 				append(make([]solana.PrivateKey, 0), provider),
 				provider.PublicKey(),
 			)
+			time.Sleep(2 * time.Second)
 		}
 	}
 
@@ -958,11 +959,6 @@ func ScheduleStakeCreationCallback(
 				sleepyTime := (startTime + start) - t
 				log.Println("Sleeping for", sleepyTime, "seconds to await next reward cycle")
 				time.Sleep(time.Duration(sleepyTime+5) * time.Second)
-			}
-			log.Println("whiskeytangofoxtrot")
-			// time.Sleep(time.Duration(delta) * time.Second)
-			// do rewards for hunters
-			/*
 				DoEntityReward(
 					provider,
 					stakingCampaignPrivateKey,
@@ -971,7 +967,18 @@ func ScheduleStakeCreationCallback(
 					event.Stake,
 					1,
 				)
-			*/
+			}
+			log.Println("whiskeytangofoxtrot")
+			// time.Sleep(time.Duration(delta) * time.Second)
+			// do rewards for hunters
+			DoEntityReward(
+				provider,
+				stakingCampaignPrivateKey,
+				stakingCampaignSmartWallet,
+				stake,
+				event.Stake,
+				1,
+			)
 		}
 
 	}
@@ -988,21 +995,16 @@ func ScheduleStakeCreationCallback(
 		ducksLiqPool,
 		ducksLiqPoolBump,
 		stake
-		/*
-			for i := range []int{1, 2} {
-				if i == 0 {
-					continue
-				}
-				DoEntityRelease(
-					provider,
-					stakingCampaignPrivateKey,
-					stakingCampaignSmartWallet,
-					stake,
-					event.Stake,
-					uint64(i),
-				)
-			}
-		*/
+	for _, v := range []int{0, 1} {
+		DoEntityRelease(
+			provider,
+			stakingCampaignPrivateKey,
+			stakingCampaignSmartWallet,
+			stake,
+			event.Stake,
+			uint64(v),
+		)
+	}
 	log.Println("End of Staking Campaign...")
 
 	setProcessed(true)
